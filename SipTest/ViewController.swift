@@ -39,16 +39,17 @@ class ViewController: UIViewController {
         let uri = ("sips:\(serverURITextField.text!)" as NSString).utf8String
         let realm = ("\(serverURITextField.text!)" as NSString).utf8String
         let username = ("\(usernameTextField.text!)" as NSString).utf8String
-        //let password = ("\(passwordTextField.text!)" as NSString).utf8String
-        
-        // TODO: hardcoded password for test use.
-        var password: UnsafePointer<Int8>
+        var password = ("\(passwordTextField.text!)" as NSString).utf8String
+
+        // Bypass password for test use.
         if usernameTextField.text! == "6728" {
             password = ("123456" as NSString).utf8String!
-        } else if usernameTextField.text! == "panel_4" {
+            passwordTextField.text = String(cString: password!)
+        }
+        
+        if usernameTextField.text! == "panel_4" {
             password = ("123" as NSString).utf8String!
-        } else {
-            fatalError()
+            passwordTextField.text = String(cString: password!)
         }
         
         accountConfig.id = pj_str(UnsafeMutablePointer<Int8>(mutating: fullURL))
