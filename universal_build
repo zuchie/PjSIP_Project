@@ -1,0 +1,545 @@
+#!/bin/bash
+# Pete Cui, 2017/12/22
+# This script is to build PJSIP for iOS platform
+# Credits:
+# https://github.com/VoIPGRID/Vialer-pjsip-iOS
+
+AVIALABLE_ARCHS=(
+    "armv7"
+    "armv7s"
+    "arm64"
+)
+export BASE_DIR=`pwd -P`
+export MIN_IOS_VERSION="10.0"
+export IOS_SDK_VERSION="10.0"
+export AVIALABLE_ARCHS
+export USE_ARCHS=()
+
+export DOWNLOAD_PJSIP_SRC=true
+export CLEAN_PJSIP_SRC=true
+export SSL_SUPPORT=true
+export OPUS_SUPPORT=true
+export SHOW_HELP=false
+
+export PJSIP_VERSION="latest"
+export PJSIP_BASE_URL="https://svn.pjsip.org/repos/pjproject"
+export PJSIP_DIR="$BASE_DIR/pjsip"
+export PJSIP_SRC_DIR="$BASE_DIR/pjsip/src"
+export PJSIP_LOGS_DIR="$BASE_DIR/pjsip/logs"
+#export PJSIP_TMP_DIR="$BASE_DIR/pjsip/temp"
+export PJSIP_CONFIG_SITE_H="$PJSIP_DIR/config_site.h"
+export PJSIP_LIB_PATHS=(
+    "pjlib/lib"
+    "pjlib-util/lib"
+    "pjmedia/lib"
+    "pjnath/lib"
+    "pjsip/lib"
+    "third_party/lib"
+)
+export PJSIP_LIB_OUTPUT="$BASE_DIR/lib"
+
+export BUILD_DIR="$PJSIP_DIR/thirdparties"
+export SSL_BUILD_DIR="$BUILD_DIR/openssl"
+export OPUS_BUILD_DIR="$BUILD_DIR/opus"
+
+
+set -e
+
+for i in "$@"; do 
+    case $i in
+        -a=* | --arch=*)
+        ARCHS="${i#*=}"
+        while IFS=',' read -ra ARCH; do
+            for i in "${ARCH[@]}"; do
+                if [[ " ${AVIALABLE_ARCHS[@]} " =~ " ${i} " ]]; then
+                    USE_ARCHS+=("$i")
+                fi
+            done
+        done <<< $ARCHS
+        shift
+        ;;
+        --no-download-pjsip-src)
+        DOWNLOAD_PJSIP_SRC=false
+        shift
+        ;;
+        --no-clean-pjsip-src)
+        CLEAN_PJSIP_SRC=false
+        shift
+        ;;
+        --extra-config-site-options=*)
+        CONFIG_SITE_OPTIONS="${i#*=}"
+        shift
+        ;;
+        -no-ssl | --no-ssl | no-ssl)
+        SSL_SUPPORT=false
+        shift
+        ;;
+        -no-opus | --no-opus | no-opus)
+        OPUS_SUPPORT=false
+        shift
+        ;;
+        -h | --help | help)
+        SHOW_HELP=true
+        shift
+        ;;
+        -v | --version | version)
+        echo "PJSIP test libs build script version: 1.0.0"
+        exit 1
+        shift
+        ;;
+        *)
+        ;;
+    esac
+done
+
+function show_help () {
+    echo "Usage: $0 [option...]" >&2
+    echo "By default the script will compile for architectures armv7, armv7s, and arm64, with openssl, and opus support."
+    echo
+    echo " -a, --arch                   Compile for specific architecture. Input the architectures separated by comma."
+    echo "                              If empty all architectures will be build (armv7,armv7s,arm64)"
+    echo 
+    echo " -no-ssl, --no-ssl, no-ssl    Do not include OpenSSL for encrypted calling. (default: included)"
+    echo 
+    echo " -no-opus, --no-opus, no-opus Do not support OPUS codec. (default: supported)"
+    echo
+    echo " --no-download-pjsip-src      Don't download a new PJSIP source"
+    echo 
+    echo " --no-clean-pjsip-src         Don't clean the PJSIP source"
+    echo 
+    echo " --extra-config-site-options  Extra custom options to put in the config_site.h. "
+    echo "                              Default 'PJ_CONFIG_IPHONE 1' is defined. and 'pj/config_site_sample.h' will be included."
+    echo
+    echo " -h, --help, help             Show this help" 
+    echo
+    echo " -v, --version, version       Version info"
+    echo
+    echo " Example usage: ./universal_build --no-ssl --no-opus --arch=armv7,arm64"
+    echo " This will build the latest pjsip for architectures armv7, and arm64, without SSL, and Opus codec."
+    exit 1
+}
+
+function spinner() {
+    local pid=$1
+    local delay=0.5
+    local spinstr='|/-\'
+    echo "$pid" > "/tmp/.spinner.pid"
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        # sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+function build_ssl () {
+    if [ $SSL_SUPPORT = false ]; then
+        return
+    fi
+
+    echo "Use OpenSSL"
+    rm -rf $SSL_BUILD_DIR
+    mkdir -p $SSL_BUILD_DIR
+    
+    pushd . > /dev/null
+    cd $SSL_BUILD_DIR
+    
+    # Download OpenSSL repo.
+    echo "Downloading OpenSSL..."
+    ssl_url="https://github.com/openssl/openssl.git"
+    git clone --depth=1 $ssl_url 
+    rm -rf .git
+    echo "Done downloading OpenSSL."
+    
+    # Build
+    echo "Building OpenSSL..."
+    SSL_ROOT_DIR="$SSL_BUILD_DIR/openssl"
+    cd $SSL_ROOT_DIR
+    export CC=clang;
+    export CROSS_TOP=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer
+    export CROSS_SDK=iPhoneOS.sdk
+    export PATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:$PATH"
+    
+    for arch in ${USE_ARCHS[@]}
+    do
+        echo "-- OpenSSL: Compiling $arch"
+        if [ "$arch" == "armv7" ] || [ "$arch" == "armv7s" ]; then
+          ./Configure ios-cross no-shared no-dso no-hw no-engine --prefix=$SSL_BUILD_DIR/openssl-$arch
+        else
+          ./Configure ios64-cross no-shared no-dso no-hw no-engine --prefix=$SSL_BUILD_DIR/openssl-$arch
+        fi
+
+        make -j4
+        
+        make install
+
+        make clean 
+    done
+
+    popd > /dev/null
+    echo "Done building OpenSSL."
+
+    echo "Lipoing openssl library..."
+    ssl_output_libs="libssl.a libcrypto.a"
+    for ssl_output_lib in ${ssl_output_libs}; do
+        ssl_input_libs=""
+        for arch in ${USE_ARCHS[@]}; do
+            ssl_input_arch_lib="${SSL_BUILD_DIR}/openssl-${arch}/lib/${ssl_output_lib}"
+
+            # armv7 and armv7s have the same architectures (armv7) and can't be in the same fat output file.
+            if [ -e $ssl_input_arch_lib ]; then
+                if [ ${arch} != "armv7s" ]; then
+                    ssl_input_libs="${ssl_input_libs} ${ssl_input_arch_lib}"
+                fi
+            fi
+        done
+
+        if [ -n "$ssl_input_libs" ]; then
+            echo "** lipo ssl libs"
+
+            lipo -create $ssl_input_libs -output "${SSL_BUILD_DIR}/${ssl_output_lib}"
+        else
+            echo "$ssl_output_lib does not exist, skipping (are the dependencies installed?)"
+        fi
+        
+    done
+    echo "Done lipoing openssl library..."
+    echo "Using SSL..."
+}
+
+function build_opus () {
+    if [ $OPUS_SUPPORT = false ]; then
+        return
+    fi
+
+    rm -rf $OPUS_BUILD_DIR
+
+    opus_version="1.2.1"
+    opus_opt_cflags="-Ofast -flto -g"
+    opus_opt_ldflags="-flto"
+    opus_opt_config_args=""
+
+    xcode_dev_path=`xcode-select -print-path`
+
+    opus_repo_dir=$OPUS_BUILD_DIR
+    opus_output_dir="${opus_repo_dir}/dependencies"
+    opus_build_build_dir="${opus_repo_dir}/build"
+    opus_src_dir="${opus_build_build_dir}/src"
+    opus_inter_dir="${opus_build_build_dir}/built"
+
+    mkdir -p "${opus_output_dir}/include"
+    mkdir -p "${opus_output_dir}/lib"
+    mkdir -p $opus_src_dir
+    mkdir -p $opus_inter_dir
+
+    cd $opus_src_dir
+
+    echo "Downloading opus-${opus_version}.tar.gz"
+    curl -LO http://downloads.xiph.org/releases/opus/opus-${opus_version}.tar.gz
+    echo "Using opus-${opus_version}.tar.gz"
+
+    tar zxf opus-${opus_version}.tar.gz
+    cd "${opus_src_dir}/opus-${opus_version}"  
+
+    ccache=""
+
+    for arch in ${USE_ARCHS[@]}
+    do
+        echo "-- Opus: Compiling $arch"
+        opus_extra_cflags="-arch $arch"
+        os_platform="iPhoneOS"
+        opus_extra_config="--host=arm-apple-darwin"
+
+        mkdir -p "${opus_inter_dir}/${os_platform}${IOS_SDK_VERSION}-${arch}.sdk"
+
+        ./configure \
+            --enable-float-approx --disable-shared --enable-static \
+            --with-pic --disable-extra-programs --disable-doc ${opus_extra_config} \
+            --prefix="${opus_inter_dir}/${os_platform}${IOS_SDK_VERSION}-${arch}.sdk" \
+            ${opus_extra_config} \
+            LDFLAGS="$LDFLAGS ${opus_opt_ldflags} -fPIE -miphoneos-version-min=${MIN_IOS_VERSION} -L${opus_output_dir}/lib" \
+            CFLAGS="$CFLAGS ${opus_extra_cflags} ${opus_opt_cflags} -fPIE -miphoneos-version-min=${MIN_IOS_VERSION} -I${opus_output_dir}/include -isysroot ${xcode_dev_path}/Platforms/${os_platform}.platform/Developer/SDKs/${os_platform}.sdk" \
+        
+        make -j4
+        
+        make install
+
+        make clean 
+    done
+
+    echo "Building opus library..."
+    opus_output_libs="libopus.a"
+    for opus_output_lib in ${opus_output_libs}; do
+        opus_input_libs=""
+        for arch in ${USE_ARCHS[@]}; do
+            opus_input_arch_lib="${opus_inter_dir}/${os_platform}${IOS_SDK_VERSION}-${arch}.sdk/lib/${opus_output_lib}"
+
+            if [ -e $opus_input_arch_lib ]; then
+                opus_input_libs="${opus_input_libs} ${opus_input_arch_lib}"
+            fi
+        done
+
+        if [ -n "$opus_input_libs" ]; then
+            echo "** lipo libs"
+
+            lipo -create $opus_input_libs -output "$opus_output_dir/lib/${opus_output_lib}"
+        else
+            echo "$opus_output_lib does not exist, skipping (are the dependencies installed?)"
+        fi
+        
+    done
+
+    echo "Done lipo-ing libs"
+    echo "Start copying to correct directory"
+
+    for arch in ${USE_ARCHS[@]}; do
+        cp -R ${opus_inter_dir}/${os_platform}${IOS_SDK_VERSION}-${arch}.sdk/include/* ${opus_output_dir}/include/
+
+        if [ $? == "0" ]; then
+            break
+        fi
+    done
+
+    echo "Done copying files"
+}
+
+function download_pjsip () {
+    if [ $PJSIP_VERSION = "latest" ]; then
+        latest_pjsip_tag=$(svn ls "$PJSIP_BASE_URL/tags/" | tail -n 1  | cut -d "/" -f 1)
+        PJSIP_VERSION=$latest_pjsip_tag
+    fi
+    
+    checkout_url="${PJSIP_BASE_URL}/tags/${PJSIP_VERSION}"
+
+    if [ $DOWNLOAD_PJSIP_SRC = true ]; then
+        echo "Downloading PJSIP version: ${PJSIP_VERSION}"
+        mkdir -p $PJSIP_DIR
+        svn export $checkout_url $PJSIP_SRC_DIR -q &
+        spinner $!
+        echo "Done downloading PJSIP source"
+        echo "============================="
+    #else
+        #svn switch $checkout_url $PJSIP_SRC_DIR
+    fi
+}
+
+function clean_pjsip () {
+
+    if [ $CLEAN_PJSIP_SRC = true ]; then
+        echo "Clean PJSIP source: ${CLEAN_PJSIP_SRC}"
+        echo "WARNING: About to clean directory: ${PJSIP_DIR}"
+        echo "Waiting 5 seconds for sanity check... CTRL-C to abort now"
+        sleep 1 && echo "4..." && \
+        sleep 1 && echo "3..." && \
+        sleep 1 && echo "2..." && \
+        sleep 1 && echo "1..." && \
+        sleep 1
+
+        echo "Cleaning PJSIP source"
+
+        rm -rf $PJSIP_DIR
+        rm -rf $PJSIP_LIB_OUTPUT
+
+        echo "Done cleaning PJSIP source"
+        echo "============================="
+    fi
+}
+
+function config_site () {
+    echo "Creating config_site.h"
+
+    if [ -f $PJSIP_CONFIG_SITE_H ]; then
+        rm -rf $PJSIP_CONFIG_SITE_H
+    fi
+
+    echo "#define PJ_CONFIG_IPHONE 1" >> $PJSIP_CONFIG_SITE_H
+
+    while IFS=',' read -ra CONFIG_SITE_OPTION; do
+        for i in "${CONFIG_SITE_OPTION[@]}"; do
+            echo "#define $i" >> $PJSIP_CONFIG_SITE_H
+        done
+    done <<< $CONFIG_SITE_OPTIONS
+
+    echo "#include <pj/config_site_sample.h>" >> $PJSIP_CONFIG_SITE_H
+    echo "Done creating new config_site.h"
+    echo "============================="
+}
+
+function build_archs () {
+    echo "Building Architectures"
+
+    for arch in "${USE_ARCHS[@]}"; do
+        _build $arch
+        _collect $arch
+    done
+
+    echo "Done building Architectures"
+    echo "============================="
+}
+
+function _build () {
+    pushd . > /dev/null
+    cd $PJSIP_SRC_DIR
+
+    mkdir -p $PJSIP_LOGS_DIR
+
+    arch=$1
+    arch_log="$PJSIP_LOGS_DIR/$arch.log"
+
+    clean_pjsip_libs $arch
+
+    configure="./configure-iphone"
+
+    if [ $SSL_SUPPORT = true ]; then
+        configure="$configure --with-ssl=${SSL_BUILD_DIR}/openssl-$arch"
+    fi
+
+    if [ $OPUS_SUPPORT = true ]; then
+        configure="$configure --with-opus=${OPUS_BUILD_DIR}/dependencies"
+    fi
+
+    cp $PJSIP_CONFIG_SITE_H "$BASE_DIR/pjsip/src/pjlib/include/pj" 
+
+    export MIN_IOS="-miphoneos-version-min=${MIN_IOS_VERSION}"
+    export ARCH="-arch $arch" 
+
+    $configure >> $arch_log 2>&1
+
+    echo "Building for $arch"
+    make dep >> $arch_log 2>&1 &
+    spinner $!
+
+    make clean >> $arch_log &
+    spinner $!
+
+    make >> $arch_log 2>&1 &
+    spinner $!
+
+    echo "Done building for $arch"
+    echo "============================="
+
+    popd > /dev/null
+
+}
+
+function _collect () {
+    echo "Collecting libs for $1"
+
+    cd $BASE_DIR
+    mkdir -p "pjsip/temp/$1"
+
+    for x in `find pjsip/src -name *$1*.a`; do
+        cp -v ./$x ./pjsip/temp/$1
+    done | tee "$BASE_DIR"/pjsip/logs/collect.log
+
+    echo "Done collecting libs for $1"
+}
+
+function _merge () {
+    echo "Merging libs"
+
+    cd $BASE_DIR
+
+    mkdir -p "$BASE_DIR"/Pod
+    a_files=`find ./pjsip/temp -name *darwin_ios.a -exec printf '%s ' {} +`
+    
+    if [ $SSL_SUPPORT = true ]; then
+        a_files="${a_files} ${SSL_BUILD_DIR}/libssl.a ${SSL_BUILD_DIR}/libcrypto.a"
+    fi
+
+    if [ $OPUS_SUPPORT = true ]; then
+        a_files="${a_files} ${OPUS_BUILD_DIR}/dependencies/lib/libopus.a"
+    fi
+    
+    libtool -o Pod/pjsip.a $a_files
+
+    echo "Done merging libs"
+}
+
+function clean_pjsip_libs_temp () {
+    rm -rf "$BASE_DIR/pjsip/temp/$arch"
+    rm -rf "$BASE_DIR/Pod"
+}
+
+function clean_pjsip_libs () {
+    arch=$1
+
+    echo "Cleaning $arch lib direcotry"
+
+    for src_dir in ${PJSIP_LIB_PATHS[*]}; do
+        dir="$PJSIP_SRC_DIR/${src_dir}"
+        if [ -d $dir ]; then
+            rm -rf $dir
+        fi
+
+        dir="$PJSIP_SRC_DIR/${src_dir}-${arch}"
+        if [ -d $dir ]; then
+            rm -rf $dir
+        fi
+    done
+
+    echo "Done cleaning $arch lib direcotry"
+}
+
+function copy_headers () {
+    echo "Copying header files to temporary location"
+    cd "$BASE_DIR/pjsip/src"
+
+    find . -path "./third_party" -prune -o -path "./pjsip-apps" -prune -o -path "./include" -prune -o -type f -wholename "*include/*.h*" -exec bash -c 'copy_to_lib_dir "{}"' ';' 2>&1
+
+    #if [ $OPUS_SUPPORT = true ]; then
+    #    find ${OPUS_BUILD_DIR}/dependencies/include/opus -type f -exec bash -c 'copy_to_lib_dir "{}"' ';'
+    #fi
+    #
+    #if [ $SSL_SUPPORT = true ]; then
+    #    find ${SSL_BUILD_DIR}/include/openssl -type f -exec bash -c 'copy_to_lib_dir "{}"' ';'
+    #fi
+
+    cd "$BASE_DIR"
+    echo "Done copying header files to temporay location"
+    echo "============================="
+}
+
+function copy_to_lib_dir () {
+    old_path=$1
+    new_path=()
+
+    path_parts=(`echo $1 | tr '/' '\n'`)
+    for x in "${path_parts[@]}"; do
+        if [ "$x" = "include" ] || [ "${#new_path[@]}" -ne "0" ]; then
+            new_path+=("$x")
+        fi
+    done
+
+    new_path="${new_path[@]:1}"
+    new_path="${new_path// //}"
+
+    d="$BASE_DIR/Pod/pjsip-include/"$(dirname $new_path)
+    mkdir -p $d
+    cp $old_path $d
+}
+
+export -f copy_to_lib_dir
+
+if [ -z ${USE_ARCHS} ]; then
+    for arch in "${AVIALABLE_ARCHS[@]}"; do
+        USE_ARCHS+=($arch)
+    done
+fi
+
+if [ $SHOW_HELP = true ]; then
+    show_help
+else
+    clean_pjsip
+    download_pjsip
+    build_ssl
+    build_opus
+    config_site
+    build_archs
+    _merge
+    copy_headers 
+
+    echo "PJSIP build done."
+fi
