@@ -7,13 +7,16 @@
 //
 
 import UIKit
+import PushKit
+import Darwin
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, PKPushRegistryDelegate {
 
     var window: UIWindow?
     var captureDeviceID: Int32 = -1000
     var playbackDeviceID: Int32 = -1000
+    var voipRegistry: PKPushRegistry!
     
     class var shared: AppDelegate {
         return UIApplication.shared.delegate as! AppDelegate
@@ -23,6 +26,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
 
+        // Register VoIP
+        self.voipRegistration()
+        
+        // CallKit and PJSUA configure
         providerDelegate = ProviderDelegate()        
         var status: pj_status_t
         
@@ -81,12 +88,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         pjsua_transport_config_default(&pjsuaTransportConfig)
         
+        /*
         status = pjsua_transport_create(PJSIP_TRANSPORT_UDP, &pjsuaTransportConfig, nil)
         if status != PJ_SUCCESS.rawValue {
             print("Error creating UDP transport, status: \(status)")
             return false
         }
-
+        */
         //let transportID: pjsua_transport_id = -1
 
         pjsuaTransportConfig.port = 5061
@@ -103,15 +111,69 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return false
         }
         
+        // Enum audio codecs
+        var count: CUnsignedInt = 9
+        let codecs = Array(repeating: pjsua_codec_info(), count: Int(count))
+        
+        if (pjsua_enum_codecs(UnsafeMutablePointer(mutating: codecs), &count) == Int32(PJ_SUCCESS.rawValue)) {
+            print("List of codecs:")
+
+            for (_, codec) in codecs.enumerated() {
+                print("ID: \(String(cString: codec.codec_id.ptr)), priority: \(Int(codec.priority))")
+            }
+        }
+        
+        // Set codec priority
+        print("Reset codec priorities.")
+        
+        var codec: pj_str_t = pj_str_t()
+        
+        pjsua_codec_set_priority(pj_cstr(&codec, "opus/48000/2"), pj_uint8_t(PJMEDIA_CODEC_PRIO_HIGHEST.rawValue))
+        
+        pjsua_codec_set_priority(pj_cstr(&codec, "speex/16000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "speex/8000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "speex/32000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "iLBC/8000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "GSM/8000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "PCMU/8000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "PCMA/8000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+        pjsua_codec_set_priority(pj_cstr(&codec, "G722/16000/1"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+
+        if (pjsua_enum_codecs(UnsafeMutablePointer(mutating: codecs), &count) == Int32(PJ_SUCCESS.rawValue)) {
+            print("List of codecs after reset priorities:")
+            
+            for (_, codec) in codecs.enumerated() {
+                print("ID: \(String(cString: codec.codec_id.ptr)), priority: \(Int(codec.priority))")
+            }
+        }
+
+        // Get sound devices
         status = pjsua_get_snd_dev(&captureDeviceID, &playbackDeviceID)
         if status != PJ_SUCCESS.rawValue {
             print("Error get sound dev IDs, status: \(status)")
             fatalError()
         }
 
+        // Disconnect sound devices
         pjsua_set_no_snd_dev()
         
         return true
+    }
+    
+    func voipRegistration() {
+        voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
+        
+        voipRegistry.delegate = self
+        voipRegistry.desiredPushTypes = [.voIP]
+    }
+
+    // Handle incoming pushes
+    func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
+        print("==Push registry, token: \(pushCredentials.token)")
+    }
+    
+    func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
+        print("==Push registry 1")
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
@@ -123,7 +185,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
         // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
     }
-
+    
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }

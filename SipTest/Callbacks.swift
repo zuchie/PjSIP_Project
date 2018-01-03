@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import UIKit
 
 enum SIPNotification: String {
     case incomingCall = "SIPIncomingCallNotification"
@@ -19,6 +20,8 @@ enum SIPNotification: String {
 }
 
 func onIncomingCall(accountID: pjsua_acc_id, callID: pjsua_call_id, rData: UnsafeMutablePointer<pjsip_rx_data>?) {
+    print("== On incoming call")
+    
     var callInfo = pjsua_call_info()
     pjsua_call_get_info(callID, &callInfo)
     
@@ -28,6 +31,16 @@ func onIncomingCall(accountID: pjsua_acc_id, callID: pjsua_call_id, rData: Unsaf
     let endIndex = remoteInfo.index(of: ">")!
     
     let remoteAddress = remoteInfo[startIndex..<endIndex].components(separatedBy: ":").last!
+    
+//    let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+//    DispatchQueue.main.asyncAfter(wallDeadline: DispatchWallTime.now() + 0) {
+////        AppDelegate.shared.displayIncomingCall(uuid: UUID(), handle: handle, hasVideo: videoEnabled) { _ in
+////            UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
+////        }
+//        AppDelegate.shared.providerDelegate.reportIncomingCall(callID: callID, uuid: UUID(), handle: remoteAddress, hasVideo: true) { _ in
+//            UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
+//        }
+//    }
     
     DispatchQueue.main.async {
         AppDelegate.shared.providerDelegate.reportIncomingCall(callID: callID, uuid: UUID(), handle: remoteAddress, hasVideo: true, completion: nil)

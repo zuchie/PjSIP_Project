@@ -23,6 +23,7 @@
 		B9A1A2F11FE8883F00A02AE5 /* OutgoingCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A1A2F01FE8883F00A02AE5 /* OutgoingCallViewController.swift */; };
 		B9A1A2F31FE8889E00A02AE5 /* IncomingCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A1A2F21FE8889E00A02AE5 /* IncomingCallViewController.swift */; };
 		B9A1A34A1FE91AD700A02AE5 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B94A291F1FE75A3C00178838 /* AVFoundation.framework */; };
+		B9CEE79F1FFCBE53005EB25E /* PushKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9CEE79E1FFCBE52005EB25E /* PushKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -348,6 +349,8 @@
 		B9A1A2EE1FE845CD00A02AE5 /* Callbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Callbacks.swift; sourceTree = "<group>"; };
 		B9A1A2F01FE8883F00A02AE5 /* OutgoingCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutgoingCallViewController.swift; sourceTree = "<group>"; };
 		B9A1A2F21FE8889E00A02AE5 /* IncomingCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallViewController.swift; sourceTree = "<group>"; };
+		B9CEE79E1FFCBE52005EB25E /* PushKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PushKit.framework; path = System/Library/Frameworks/PushKit.framework; sourceTree = SDKROOT; };
+		B9CEE7A01FFCD0FA005EB25E /* SipTest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SipTest.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -355,6 +358,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B9CEE79F1FFCBE53005EB25E /* PushKit.framework in Frameworks */,
 				B9354D771FEF154B00A58D5C /* pjsip.a in Frameworks */,
 				B9A1A34A1FE91AD700A02AE5 /* AVFoundation.framework in Frameworks */,
 			);
@@ -824,6 +828,7 @@
 		B94A28D71FE7532300178838 /* SipTest */ = {
 			isa = PBXGroup;
 			children = (
+				B9CEE7A01FFCD0FA005EB25E /* SipTest.entitlements */,
 				B94A28D81FE7532300178838 /* AppDelegate.swift */,
 				B94A28DA1FE7532300178838 /* ViewController.swift */,
 				B94A28DC1FE7532300178838 /* Main.storyboard */,
@@ -859,6 +864,7 @@
 		B94A291C1FE75A2E00178838 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B9CEE79E1FFCBE52005EB25E /* PushKit.framework */,
 				B94A291F1FE75A3C00178838 /* AVFoundation.framework */,
 			);
 			name = Frameworks;
@@ -898,6 +904,14 @@
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 0920;
 						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.BackgroundModes = {
+								enabled = 1;
+							};
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -1085,6 +1099,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = SipTest/SipTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = TYA2375JGG;
 				ENABLE_BITCODE = NO;
@@ -1118,6 +1133,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = SipTest/SipTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = TYA2375JGG;
 				ENABLE_BITCODE = NO;
