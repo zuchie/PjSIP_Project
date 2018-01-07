@@ -87,6 +87,7 @@
                             <constraint firstItem="FbN-5n-BR2" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leadingMargin" id="Gq8-dd-bRY"/>
                             <constraint firstItem="FbN-5n-BR2" firstAttribute="centerY" secondItem="8bC-Xf-vdC" secondAttribute="centerY" multiplier="0.7" id="kv4-k2-QDZ"/>
                         </constraints>
+                        <viewLayoutGuide key="safeArea" id="i72-Sl-Ysa"/>
                     </view>
                     <connections>
                         <outlet property="passwordTextField" destination="8za-DJ-6Zr" id="R70-PT-25F"/>
@@ -123,26 +124,43 @@
                                     </textField>
                                 </subviews>
                             </stackView>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Dzh-TM-Gll">
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Dzh-TM-Gll">
                                 <rect key="frame" x="150" y="205" width="76" height="30"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="30" id="mqS-jp-LH3"/>
+                                    <constraint firstAttribute="width" constant="76" id="rEl-aK-Hh7"/>
+                                </constraints>
                                 <state key="normal" title="Call"/>
                                 <connections>
                                     <action selector="tapToCallOrHangup:" destination="ks5-2e-saK" eventType="touchUpInside" id="gpA-R0-obf"/>
                                 </connections>
                             </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="BZL-mD-AGg">
+                                <rect key="frame" x="279" y="205" width="76" height="30"/>
+                                <state key="normal" title="Video"/>
+                                <connections>
+                                    <action selector="tapToStartVideo:" destination="ks5-2e-saK" eventType="touchUpInside" id="Xbp-Ey-Day"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
+                            <constraint firstItem="BZL-mD-AGg" firstAttribute="centerY" secondItem="Dzh-TM-Gll" secondAttribute="centerY" id="B8E-iH-hfY"/>
                             <constraint firstItem="eo0-bE-1Oa" firstAttribute="centerY" secondItem="hyH-Bv-qOz" secondAttribute="centerY" multiplier="0.4" id="C3t-p0-TA0"/>
+                            <constraint firstItem="Dzh-TM-Gll" firstAttribute="centerX" secondItem="M63-bX-4Kj" secondAttribute="centerX" id="Hbn-Ks-pzX"/>
+                            <constraint firstItem="Dzh-TM-Gll" firstAttribute="top" secondItem="eo0-bE-1Oa" secondAttribute="bottom" constant="56.5" id="Nvn-NN-u6B"/>
                             <constraint firstAttribute="trailingMargin" secondItem="eo0-bE-1Oa" secondAttribute="trailing" id="Pnd-va-1CB"/>
+                            <constraint firstItem="BZL-mD-AGg" firstAttribute="height" secondItem="Dzh-TM-Gll" secondAttribute="height" id="ZaD-JP-Dvn"/>
                             <constraint firstItem="eo0-bE-1Oa" firstAttribute="leading" secondItem="hyH-Bv-qOz" secondAttribute="leadingMargin" id="ZsL-Po-Hra"/>
+                            <constraint firstItem="BZL-mD-AGg" firstAttribute="leading" secondItem="Dzh-TM-Gll" secondAttribute="trailing" constant="53" id="gk9-V9-z5G"/>
+                            <constraint firstItem="BZL-mD-AGg" firstAttribute="width" secondItem="Dzh-TM-Gll" secondAttribute="width" id="rXP-S9-Smk"/>
                         </constraints>
+                        <viewLayoutGuide key="safeArea" id="M63-bX-4Kj"/>
                     </view>
                     <connections>
                         <outlet property="callButton" destination="Dzh-TM-Gll" id="EOe-rr-X5A"/>
                         <outlet property="calleeTextField" destination="JLL-Ig-iDv" id="e96-SW-qKO"/>
-                        <segue destination="uFL-LI-DY3" kind="presentation" identifier="segueOutgoingCallToIncomingCall" id="gUp-LF-ynz"/>
+                        <segue destination="uFL-LI-DY3" kind="presentation" identifier="segueOutgoingCallToIncomingVideo" id="gUp-LF-ynz"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="zTy-JM-zmT" userLabel="First Responder" sceneMemberID="firstResponder"/>

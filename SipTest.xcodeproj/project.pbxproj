@@ -24,6 +24,7 @@
 		B9A1A2F31FE8889E00A02AE5 /* IncomingCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A1A2F21FE8889E00A02AE5 /* IncomingCallViewController.swift */; };
 		B9A1A34A1FE91AD700A02AE5 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B94A291F1FE75A3C00178838 /* AVFoundation.framework */; };
 		B9CEE79F1FFCBE53005EB25E /* PushKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9CEE79E1FFCBE52005EB25E /* PushKit.framework */; };
+		B9CEE7A21FFF57EA005EB25E /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9CEE7A11FFF57EA005EB25E /* VideoToolbox.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -351,6 +352,7 @@
 		B9A1A2F21FE8889E00A02AE5 /* IncomingCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallViewController.swift; sourceTree = "<group>"; };
 		B9CEE79E1FFCBE52005EB25E /* PushKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PushKit.framework; path = System/Library/Frameworks/PushKit.framework; sourceTree = SDKROOT; };
 		B9CEE7A01FFCD0FA005EB25E /* SipTest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SipTest.entitlements; sourceTree = "<group>"; };
+		B9CEE7A11FFF57EA005EB25E /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -358,6 +360,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B9CEE7A21FFF57EA005EB25E /* VideoToolbox.framework in Frameworks */,
 				B9CEE79F1FFCBE53005EB25E /* PushKit.framework in Frameworks */,
 				B9354D771FEF154B00A58D5C /* pjsip.a in Frameworks */,
 				B9A1A34A1FE91AD700A02AE5 /* AVFoundation.framework in Frameworks */,
@@ -864,6 +867,7 @@
 		B94A291C1FE75A2E00178838 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B9CEE7A11FFF57EA005EB25E /* VideoToolbox.framework */,
 				B9CEE79E1FFCBE52005EB25E /* PushKit.framework */,
 				B94A291F1FE75A3C00178838 /* AVFoundation.framework */,
 			);

@@ -108,7 +108,8 @@ function show_help () {
     echo " --no-clean-pjsip-src         Don't clean the PJSIP source"
     echo 
     echo " --extra-config-site-options  Extra custom options to put in the config_site.h. "
-    echo "                              Default 'PJ_CONFIG_IPHONE 1' is defined. and 'pj/config_site_sample.h' will be included."
+    echo "                              Default 'PJ_CONFIG_IPHONE 1, PJMEDIA_HAS_VIDEO 1, PJMEDIA_HAS_VID_TOOLBOX_CODEC 1' is defined."
+    echo "                              And 'pj/config_site_sample.h' is included."
     echo
     echo " -h, --help, help             Show this help" 
     echo
@@ -355,6 +356,8 @@ function config_site () {
     fi
 
     echo "#define PJ_CONFIG_IPHONE 1" >> $PJSIP_CONFIG_SITE_H
+    echo "#define PJMEDIA_HAS_VIDEO 1" >> $PJSIP_CONFIG_SITE_H
+    echo "#define PJMEDIA_HAS_VID_TOOLBOX_CODEC 1" >> $PJSIP_CONFIG_SITE_H
 
     while IFS=',' read -ra CONFIG_SITE_OPTION; do
         for i in "${CONFIG_SITE_OPTION[@]}"; do

@@ -147,6 +147,69 @@ class AppDelegate: UIResponder, UIApplicationDelegate, PKPushRegistryDelegate {
             }
         }
 
+        // Enum Video codecs
+        var videoCodecsCount: CUnsignedInt = 2
+        let videoCodecs = Array(repeating: pjsua_codec_info(), count: Int(videoCodecsCount))
+        
+        if (pjsua_vid_enum_codecs(UnsafeMutablePointer(mutating: videoCodecs), &videoCodecsCount) == Int32(PJ_SUCCESS.rawValue)) {
+            print("List of video codecs:")
+            
+            for i in 0..<videoCodecsCount {
+                print("ID: \(String(cString: videoCodecs[Int(i)].codec_id.ptr)), priority: \(Int(videoCodecs[Int(i)].priority))")
+            }
+            
+//            for (_, codec) in videoCodecs.enumerated() {
+//                print("ID: \(String(cString: codec.codec_id.ptr)), priority: \(Int(codec.priority))")
+//            }
+        }
+        
+        // Set video codec priority
+        print("Reset video codec priorities.")
+        
+        var videoCodec: pj_str_t = pj_str_t()
+        
+        pjsua_vid_codec_set_priority(pj_cstr(&videoCodec, "H264/97"), pj_uint8_t(PJMEDIA_CODEC_PRIO_HIGHEST.rawValue))
+        //pjsua_vid_codec_set_priority(pj_cstr(&videoCodec, "VP8/90000"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
+
+        if (pjsua_vid_enum_codecs(UnsafeMutablePointer(mutating: videoCodecs), &videoCodecsCount) == Int32(PJ_SUCCESS.rawValue)) {
+            print("List of video codecs after reset priorities:")
+            
+            for i in 0..<videoCodecsCount {
+                print("ID: \(String(cString: videoCodecs[Int(i)].codec_id.ptr)), priority: \(Int(videoCodecs[Int(i)].priority))")
+            }
+
+//            for (_, codec) in videoCodecs.enumerated() {
+//                print("ID: \(String(cString: codec.codec_id.ptr)), priority: \(Int(codec.priority))")
+//            }
+        }
+        
+//        // Config video codecs
+//        var codec_id: pj_str_t = pj_str_t(ptr: UnsafeMutablePointer<Int8>(mutating: "H264"), slen: 4)
+//        var cp = pjmedia_vid_codec_param()
+//
+//        status = pjsua_vid_codec_get_param(&codec_id, &cp)
+//        if status == PJ_SUCCESS.rawValue {
+//            // Size
+//            cp.enc_fmt.det.vid.size.w = 1280
+//            cp.enc_fmt.det.vid.size.h = 720
+//            // Framerate
+//            cp.enc_fmt.det.vid.fps.num = 30
+//            cp.enc_fmt.det.vid.fps.denum = 1
+//            // Bitrate
+//            cp.enc_fmt.det.vid.avg_bps = 512000
+//            cp.enc_fmt.det.vid.max_bps = 1024000
+//            status = pjsua_vid_codec_set_param(&codec_id, &cp)
+//        }
+//
+//        if status != PJ_SUCCESS.rawValue {
+//            fatalError()
+//        }
+        
+//        /* Can receive up to 1280×720 @30fps */
+//        cp.dec_fmtp.param[0].name = pj_str("profile-level-id")
+//        /* Set the profile level to "1f", which means level 3.1 */
+//        cp.dec_fmtp.param[0].val = pj_str("xxxx1f")
+        
         // Get sound devices
         status = pjsua_get_snd_dev(&captureDeviceID, &playbackDeviceID)
         if status != PJ_SUCCESS.rawValue {

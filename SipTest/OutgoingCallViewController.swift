@@ -20,8 +20,7 @@ class OutgoingCallViewController: UIViewController {
         super.viewDidLoad()
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleCallStatusChanged), name: SIPNotification.callState.notification, object: nil)
-        
-        //NotificationCenter.default.addObserver(self, selector: #selector(handleIncomingCall), name: SIPNotification.incomingCall.notification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleIncomingVideo), name: SIPNotification.incomingVideo.notification, object: nil)
         
         switch AVAudioSession.sharedInstance().recordPermission() {
         case AVAudioSessionRecordPermission.granted:
@@ -64,6 +63,16 @@ class OutgoingCallViewController: UIViewController {
         }
     }
     
+    @IBAction func tapToStartVideo(_ sender: UIButton) {
+        var status = pj_status_t(PJ_SUCCESS.rawValue)
+        
+        status = pjsua_call_set_vid_strm(callID, PJSUA_CALL_VID_STRM_ADD, nil)
+        
+        if status != pj_status_t(PJ_SUCCESS.rawValue) {
+            fatalError()
+        }
+    }
+    
     private func makeCall() {
         let accountID: pjsua_acc_id = pjsua_acc_id(UserDefaults.standard.integer(forKey: "loginAccountID"))
         let serverURI: String = UserDefaults.standard.string(forKey: "serverURI")!
@@ -93,21 +102,22 @@ class OutgoingCallViewController: UIViewController {
         }
     }
 
-//    @objc func handleIncomingCall(_ notification: Notification) {
-//        let callID: pjsua_call_id = notification.userInfo!["callID"] as! pjsua_call_id
-//        let phoneNumber: String = notification.userInfo!["remoteAddress"] as! String
-//
-//        performSegue(withIdentifier: "segueOutgoingCallToIncomingCall", sender: (callID, phoneNumber))
-//    }
+    @objc func handleIncomingVideo(_ notification: Notification) {
+        //let callID: pjsua_call_id = notification.userInfo!["callID"] as! pjsua_call_id
+        //let phoneNumber: String = notification.userInfo!["remoteAddress"] as! String
+        let windowID: pjsua_vid_win_id = notification.userInfo!["windowID"] as! pjsua_vid_win_id
+
+        performSegue(withIdentifier: "segueOutgoingCallToIncomingVideo", sender: (windowID))
+    }
     
     // Navigation
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "segueOutgoingCallToIncomingCall" {
+        if segue.identifier == "segueOutgoingCallToIncomingVideo" {
             let destinationVC = segue.destination as! IncomingCallViewController
             
-            let param = sender as! (pjsua_call_id, String)
-            destinationVC.setParam(param.0, param.1)
+            let param = sender as! pjsua_vid_win_id
+            destinationVC.setParam(param)
         }
     }
     

@@ -66,6 +66,14 @@ class ViewController: UIViewController {
         if status != PJ_SUCCESS.rawValue {
             print("Register error, status: \(status)")
         }
+        
+        // Show incoming video
+        accountConfig.vid_in_auto_show = pj_bool_t(PJ_TRUE.rawValue)
+//        accountConfig.vid_out_auto_transmit = pj_bool_t(PJ_TRUE.rawValue)
+        
+//        accountConfig.vid_wnd_flags = PJMEDIA_VID_DEV_WND_BORDER.rawValue | PJMEDIA_VID_DEV_WND_RESIZABLE.rawValue
+//        accountConfig.vid_cap_dev = PJMEDIA_VID_DEFAULT_CAPTURE_DEV.rawValue
+//        accountConfig.vid_rend_dev = 0
     }
     
     @objc func handleRegistrationStatus(_ notification: Notification) {
