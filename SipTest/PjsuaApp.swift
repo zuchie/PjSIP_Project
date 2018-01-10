@@ -20,10 +20,8 @@ enum SIPNotification: String {
 }
 
 class PjsuaApp {
+    
     static let shared = PjsuaApp()
-
-    let PJSUA_APP_NO_LIMIT_DURATION: CUnsignedInt = 0x7FFFFFFF
-    let PJSUA_APP_NO_NB = -2
     
     var current_acc = pjsua_acc_get_default()
     var call_opt = pjsua_call_setting()
@@ -40,11 +38,11 @@ class PjsuaApp {
     
     /* Video settings */
     struct app_vid {
-        var vid_cnt = CUnsignedInt(0)
-        var vcapture_dev = CInt(0)
-        var vrender_dev = CInt(0)
-        var in_auto_show = pj_bool_t(0)
-        var out_auto_transmit = pj_bool_t(0)
+        var vid_cnt: UInt32 = 1
+        var vcapture_dev: Int32 = PJMEDIA_VID_DEFAULT_CAPTURE_DEV.rawValue
+        var vrender_dev: Int32 = PJMEDIA_VID_DEFAULT_RENDER_DEV.rawValue
+        var in_auto_show: pj_bool_t = 1
+        var out_auto_transmit: pj_bool_t = 1
     }
     
     /* Pjsua application data */
@@ -52,59 +50,41 @@ class PjsuaApp {
         var cfg = pjsua_config()
         var log_cfg = pjsua_logging_config()
         var media_cfg = pjsua_media_config()
-        var no_refersub: pj_bool_t = 1
         var ipv6: pj_bool_t = 1
         var enable_qos: pj_bool_t = 1
         var no_tcp: pj_bool_t = 1
         var no_udp: pj_bool_t = 1
-        var use_tls: pj_bool_t = 1
+        var use_tls: pj_bool_t = 1 // Enable SSL
         var udp_cfg = pjsua_transport_config()
         var rtp_cfg = pjsua_transport_config()
-        var redir_op = pjsip_redirect_op(0)
-        
-        var acc_cnt: CUnsignedInt = 0
-        var acc_cfg = Array(repeating: pjsua_acc_config(), count: Int(0/*PJSUA_MAX_ACC*/))
-        
-        var buddy_cnt: CUnsignedInt = 0
-        var buddy_cfg = Array(repeating: pjsua_buddy_config(), count: Int(0/*PJSUA_MAX_BUDDIES*/))
         
         var call_data = Array(repeating: app_call_data(), count: Int(PJSUA_MAX_CALLS))
         
-        var pool: UnsafeMutablePointer<pj_pool_t>!
-        
         /* Compatibility with older pjsua */
+        var null_audio: pj_bool_t = 0
         
-        var codec_cnt: CUnsignedInt = 0
-        var codec_arg = Array(repeating: pj_str_t(), count: 32)
-        var codec_dis_cnt: CUnsignedInt = 0
-        var codec_dis = Array(repeating: pj_str_t(), count: 32)
-        var null_audio = pj_bool_t(1)
+        var auto_answer: UInt32 = 200 // Call answer code
+        var duration: UInt32 = 0x7FFFFFFF // No limit duration
         
-        var tone_count = CUnsignedInt(0)
-        var tones = Array(repeating: pjmedia_tone_desc(), count: 32)
-        var tone_slots = Array(repeating: pjsua_conf_port_id(), count: 32)
-        var auto_answer = CUnsignedInt(0)
-        var duration = CUnsignedInt(0)
+        var mic_level: Float = 1.0
+        var speaker_level: Float = 1.0
         
-        var mic_level = CFloat(0)
-        var speaker_level = CFloat(0)
+        var capture_dev: Int32 = PJSUA_INVALID_ID.rawValue
+        var playback_dev: Int32 = PJSUA_INVALID_ID.rawValue
         
-        var capture_dev = CInt(0)
-        var playback_dev = CInt(0)
+        var capture_lat: UInt32 = UInt32(PJMEDIA_SND_DEFAULT_REC_LATENCY)
+        var playback_lat: UInt32 = UInt32(PJMEDIA_SND_DEFAULT_PLAY_LATENCY)
         
-        var capture_lat = CUnsignedInt(0)
-        var playback_lat = CUnsignedInt(0)
-        
-        var no_tones = pj_bool_t(0)
-        var ringback_slot = CInt(0)
-        var ringback_cnt = CInt(0)
+        var no_tones: pj_bool_t = 0
+        var ringback_slot: Int32 = PJSUA_INVALID_ID.rawValue
+        var ringback_cnt: Int32 = 0
         var ringback_port = UnsafeMutablePointer<pjmedia_port>(mutating: nil)
-        var ring_slot = CInt(0)
-        var ring_cnt = CInt(0)
+        var ring_slot: Int32 = PJSUA_INVALID_ID.rawValue
+        var ring_cnt: Int32 = 0
         var ring_port = UnsafeMutablePointer<pjmedia_port>(mutating: nil)
         
         var vid = app_vid()
-        var aud_cnt = CUnsignedInt(0)
+        var aud_cnt: UInt32 = 1
     }
     
     private init() {}
@@ -156,25 +136,33 @@ class PjsuaApp {
     }
     
     func pjsuaStart() {
-        var status: pj_bool_t = pj_bool_t(PJ_SUCCESS.rawValue)
+        var status: pj_status_t
         
         status = app_init()
         if (status != PJ_SUCCESS.rawValue) {
-            //            char errmsg[PJ_ERR_MSG_SIZE]
-            //            pj_strerror(status, errmsg, sizeof(errmsg))
+            var errmsg = Array(repeating: Int8(), count: Int(PJ_ERR_MSG_SIZE))
+            pj_strerror(status, &errmsg, Int(PJ_ERR_MSG_SIZE))
+            let data = Data(bytes: errmsg, count: errmsg.count)
+            print("Pjsua Init Error: \(String(data: data, encoding: .utf8) ?? "")")
+            
+            // TODO: Add pjsua_app_destroy()
             //pjsua_app_destroy();
             fatalError()
         }
         
-        status = app_run(pj_bool_t(PJ_TRUE.rawValue))
+        status = app_run()
         if (status != PJ_SUCCESS.rawValue) {
-            //            char errmsg[PJ_ERR_MSG_SIZE]
-            //            pj_strerror(status, errmsg, sizeof(errmsg))
+            var errmsg = Array(repeating: Int8(), count: Int(PJ_ERR_MSG_SIZE))
+            pj_strerror(status, &errmsg, Int(PJ_ERR_MSG_SIZE))
+            let data = Data(bytes: errmsg, count: errmsg.count)
+            print("Pjsua run Error: \(String(data: data, encoding: .utf8) ?? "")")
+            
+            // TODO: Add pjsua_app_destroy()
+            //pjsua_app_destroy();
             fatalError()
         }
         
         _ = cmd_add_account()
-        //pjsua_app_destroy();
     }
     
     
@@ -196,50 +184,26 @@ class PjsuaApp {
     
     /* Set default config. */
     func default_config() -> pjsua_app_config {
-        let tmp = Array(repeating: CChar(), count: 80)
         var cfg = app_config
         
         pjsua_config_default(&cfg.cfg)
-        
-        print("PJSUA \(pj_get_version().pointee) \(String(cString: pj_get_sys_info().pointee.info.ptr))")
-        
-        pj_strdup2_with_null(app_config.pool, &cfg.cfg.user_agent, tmp)
+
+        let str = "PJSUA v\(String(cString: pj_get_version())) \(String(cString: pj_get_sys_info().pointee.info.ptr))"
+        cfg.cfg.user_agent = pj_str(UnsafeMutablePointer<Int8>(mutating: str))
         
         pjsua_logging_config_default(&cfg.log_cfg)
+        
         pjsua_media_config_default(&cfg.media_cfg)
+        
         pjsua_transport_config_default(&cfg.udp_cfg)
         cfg.udp_cfg.port = 5060
+        
         pjsua_transport_config_default(&cfg.rtp_cfg)
         cfg.rtp_cfg.port = 4000
-        cfg.redir_op = PJSIP_REDIRECT_ACCEPT_REPLACE
-        cfg.duration = PJSUA_APP_NO_LIMIT_DURATION
-        cfg.mic_level = 1.0
-        cfg.speaker_level = 1.0
-        cfg.capture_dev = PJSUA_INVALID_ID.rawValue
-        cfg.playback_dev = PJSUA_INVALID_ID.rawValue
-        cfg.capture_lat = CUnsignedInt(PJMEDIA_SND_DEFAULT_REC_LATENCY)
-        cfg.playback_lat = CUnsignedInt(PJMEDIA_SND_DEFAULT_PLAY_LATENCY)
-        cfg.ringback_slot = PJSUA_INVALID_ID.rawValue
-        cfg.ring_slot = PJSUA_INVALID_ID.rawValue
-        
-        for i in 0..<cfg.acc_cfg.count {
-            pjsua_acc_config_default(&cfg.acc_cfg[i])
-            // Pete, added for test, do not retry registration.
-            cfg.acc_cfg[i].reg_retry_interval = 0
-        }
-        
-        cfg.vid.in_auto_show = pj_bool_t(PJ_TRUE.rawValue)
-        cfg.vid.out_auto_transmit = pj_bool_t(PJ_TRUE.rawValue)
-        cfg.vid.vid_cnt = 1
-        cfg.vid.vcapture_dev = PJMEDIA_VID_DEFAULT_CAPTURE_DEV.rawValue
-        cfg.vid.vrender_dev = PJMEDIA_VID_DEFAULT_RENDER_DEV.rawValue
-        cfg.aud_cnt = 1
         
         // Pete, added for test
-        cfg.use_tls = pj_bool_t(PJ_TRUE.rawValue)
         cfg.cfg.outbound_proxy_cnt = 1
-        cfg.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: "sips:siptest.butterflymx.com:5061"))
-        cfg.udp_cfg.port = 5061
+        cfg.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: "sips:siptest.butterflymx.com"))
         
         return cfg
     }
@@ -256,7 +220,7 @@ class PjsuaApp {
         acc_cfg.vid_rend_dev = app_config.vid.vrender_dev
     }
     
-    func app_run(_ wait_telnet_cli: pj_bool_t) -> pj_status_t {
+    func app_run() -> pj_status_t {
         //    pj_thread_t *stdout_refresh_thread = NULL;
         var status: pj_status_t
         
@@ -349,19 +313,13 @@ class PjsuaApp {
     func app_init() -> pj_status_t {
         var transport_id: pjsua_transport_id = -1
         var tcp_cfg = pjsua_transport_config()
-        var tmp_pool: UnsafeMutablePointer<pj_pool_t>
-        var status: pj_status_t = pj_status_t(PJ_SUCCESS.rawValue)
+        var status: pj_status_t
         
         /** Create pjsua **/
         status = pjsua_create()
         if status != PJ_SUCCESS.rawValue {
             return status
         }
-        
-        /* Create pool for application */
-        app_config.pool = pjsua_pool_create("pjsua-app", 1000, 1000)
-        
-        tmp_pool = pjsua_pool_create("tmp-pjsua", 1000, 1000)
         
         app_config = default_config()
         
@@ -386,15 +344,14 @@ class PjsuaApp {
         //            (*app_cfg.on_config_init)(&app_config)
         //        }
         
-        // Pete
-        app_config.cfg.outbound_proxy_cnt = 1;
-        app_config.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: "sips:siptest.butterflymx.com:5061"))
+//        // Pete
+//        app_config.cfg.outbound_proxy_cnt = 1;
+//        app_config.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: "sips:siptest.butterflymx.com:5061"))
         
         /* Initialize pjsua */
         status = pjsua_init(&(app_config.cfg), &(app_config.log_cfg), &(app_config.media_cfg))
         
         if (status != PJ_SUCCESS.rawValue) {
-            pj_pool_release(tmp_pool)
             return status
         }
         
@@ -414,24 +371,8 @@ class PjsuaApp {
             status = pjsua_transport_create(PJSIP_TRANSPORT_TLS, &tcp_cfg, &transport_id)
             tcp_cfg.port -= 1
             if (status != PJ_SUCCESS.rawValue) {
-                pj_pool_release(tmp_pool)
                 fatalError()
             }
-            
-//            /* Add local account */
-//            pjsua_acc_add_local(transport_id, pj_bool_t(PJ_FALSE.rawValue), &acc_id)
-//
-//            /* Adjust local account config based on pjsua app config */
-//            do {
-//                var acc_cfg = pjsua_acc_config()
-//                pjsua_acc_get_config(acc_id, tmp_pool, &acc_cfg)
-//
-//                app_config_init_video(&acc_cfg)
-//                acc_cfg.rtp_cfg = app_config.rtp_cfg
-//                pjsua_acc_modify(acc_id, &acc_cfg)
-//            }
-//
-//            pjsua_acc_set_online_status(acc_id, pj_bool_t(PJ_TRUE.rawValue))
         }
         
         
@@ -439,7 +380,6 @@ class PjsuaApp {
         if (transport_id == -1) {
             print("Error: no transport is configured")
             status = -1
-            pj_pool_release(tmp_pool)
             fatalError()
         }
         
@@ -460,15 +400,13 @@ class PjsuaApp {
 //            //#endif
 //        }
         
-        //        /* Use null sound device? */
-        //        //    #ifndef STEREO_DEMO
-        //        if (app_config.null_audio != 0) {
-        //            status = pjsua_set_null_snd_dev()
-        //            if (status != PJ_SUCCESS.rawValue) {
-        //                return status
-        //            }
-        //        }
-        //        //#endif
+        /* Use null sound device? */
+        if (app_config.null_audio != 0) {
+            status = pjsua_set_null_snd_dev()
+            if (status != PJ_SUCCESS.rawValue) {
+                return status
+            }
+        }
         
         if (app_config.capture_dev != PJSUA_INVALID_ID.rawValue ||
             app_config.playback_dev != PJSUA_INVALID_ID.rawValue)
@@ -485,7 +423,6 @@ class PjsuaApp {
         call_opt.aud_cnt = app_config.aud_cnt
         call_opt.vid_cnt = app_config.vid.vid_cnt
         
-        pj_pool_release(tmp_pool)
         return pj_status_t(PJ_SUCCESS.rawValue)
     }
     
@@ -550,19 +487,17 @@ class PjsuaApp {
         return pj_bool_t(PJ_FALSE.rawValue)
     }
     
-    let on_call_state: @convention(c) (pjsua_call_id, UnsafeMutablePointer<pjsip_event>?) -> Void = { call_id, e in
+    // TODO: complete on_call_state
+    let on_call_state: @convention(c) (pjsua_call_id, UnsafeMutablePointer<pjsip_event>?) -> Void = { call_id, _ in
         
         var call_info = pjsua_call_info()
-        
-        //PJ_UNUSED_ARG(e)
         
         pjsua_call_get_info(call_id, &call_info)
         
         if (call_info.state == PJSIP_INV_STATE_DISCONNECTED) {
             
             /* Stop all ringback for this call */
-            //ring_stop(call_id)
-            
+//            PjsuaApp.shared.ring_stop(call_id)
             
             print("Call \(call_id) is DISCONNECTED [reason=\(call_info.last_status) \(call_info.last_status_text.ptr)]")
             
@@ -576,9 +511,10 @@ class PjsuaApp {
         } else {
             if (call_info.state == PJSIP_INV_STATE_EARLY) {
                 
-                if PjsuaApp.shared.current_call == PJSUA_INVALID_ID.rawValue {
-                    PjsuaApp.shared.current_call = call_id
-                }
+            }
+            
+            if PjsuaApp.shared.current_call == PJSUA_INVALID_ID.rawValue {
+                PjsuaApp.shared.current_call = call_id
             }
             
             //    id argument = @{
@@ -598,7 +534,7 @@ class PjsuaApp {
                              _ has_error: pj_bool_t) {
         
         /* Stop ringback */
-        //ring_stop(ci.id)
+        //ring_stop(ci.id) // TODO: Add ring_stop
         
         /* Connect ports appropriately when media status is ACTIVE or REMOTE HOLD,
          * otherwise we should NOT connect the ports.
@@ -716,7 +652,6 @@ class PjsuaApp {
             
             if wi.is_native == PJ_FALSE.rawValue {
                 // Show window
-                print("i: \(i)")
                 status = pjsua_vid_win_set_show(pjsua_vid_win_id(i), pj_bool_t(PJ_TRUE.rawValue))
                 if status != PJ_SUCCESS.rawValue { fatalError() }
                 
@@ -764,9 +699,9 @@ class PjsuaApp {
             
             switch media[Int(mi)].type {
             case PJMEDIA_TYPE_AUDIO:
-                if (call_info.media_status == PJSUA_CALL_MEDIA_ACTIVE) {
+//                if (call_info.media_status == PJSUA_CALL_MEDIA_ACTIVE) {
                     PjsuaApp.shared.on_call_audio_state(call_info, mi, has_error)
-                }
+//                }
             case PJMEDIA_TYPE_VIDEO:
                 PjsuaApp.shared.on_call_video_state(call_info, mi, has_error)
             default:
@@ -855,15 +790,15 @@ class PjsuaApp {
         /* Start ringback */
         //ring_start(call_id)
         
-        //    if (app_config.auto_answer > 0) {
-        var opt = pjsua_call_setting()
-        
-        pjsua_call_setting_default(&opt)
-        opt.aud_cnt = PjsuaApp.shared.app_config.aud_cnt
-        opt.vid_cnt = PjsuaApp.shared.app_config.vid.vid_cnt
-        
-        pjsua_call_answer2(call_id, &opt, 200/*app_config.auto_answer*/, nil, nil)
-        //    }
+        if (PjsuaApp.shared.app_config.auto_answer > 0) {
+            var opt = pjsua_call_setting()
+            
+            pjsua_call_setting_default(&opt)
+            opt.aud_cnt = PjsuaApp.shared.app_config.aud_cnt
+            opt.vid_cnt = PjsuaApp.shared.app_config.vid.vid_cnt
+            
+            pjsua_call_answer2(call_id, &opt, PjsuaApp.shared.app_config.auto_answer, nil, nil)
+        }
         
         if (PjsuaApp.shared.app_config.auto_answer < 200) {
             
