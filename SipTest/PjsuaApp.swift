@@ -89,8 +89,83 @@ class PjsuaApp {
     
     private init() {}
     
+    /*****************************************************************************
+     * A simple module to handle otherwise unhandled request. We will register
+     * this with the lowest priority.
+     */
+    
+    /* Notification on incoming request */
+    let default_mod_on_rx_request: @convention(c) (UnsafeMutablePointer<pjsip_rx_data>?) -> pj_bool_t = { rdata in
+        var tdata: UnsafeMutablePointer<pjsip_tx_data>?
+        var status_code: pjsip_status_code
+        var status: pj_status_t
+        
+        var ack_method = pjsip_ack_method
+        var notify_method = pjsip_notify_method
+        
+        /* Don't respond to ACK! */
+        if (pjsip_method_cmp(&rdata!.pointee.msg_info.msg.pointee.line.req.method, &ack_method) == 0) {
+            return pj_bool_t(PJ_TRUE.rawValue)
+        }
+        
+        //        /* Simple registrar */
+        //        if (pjsip_method_cmp(&rdata.pointee.msg_info.msg.pointee.line.req.method, &register_method) == 0) {
+        //            simple_registrar(rdata)
+        //            return pj_bool_t(PJ_TRUE.rawValue)
+        //        }
+        
+        /* Create basic response. */
+        if (pjsip_method_cmp(&rdata!.pointee.msg_info.msg.pointee.line.req.method, &notify_method) == 0)
+        {
+            /* Unsolicited NOTIFY's, send with Bad Request */
+            status_code = PJSIP_SC_BAD_REQUEST
+        } else {
+            /* Probably unknown method */
+            status_code = PJSIP_SC_METHOD_NOT_ALLOWED
+        }
+        
+        status = pjsip_endpt_create_response(pjsua_get_pjsip_endpt(), rdata, Int32(status_code.rawValue), nil, &tdata)
+        if (status != PJ_SUCCESS.rawValue) {
+            print("Unable to create response, status: \(status)")
+            return pj_bool_t(PJ_TRUE.rawValue)
+        }
+        
+        /* Add Allow if we're responding with 405 */
+        if (status_code == PJSIP_SC_METHOD_NOT_ALLOWED) {
+            var cap_hdr: UnsafePointer<pjsip_hdr>?
+            cap_hdr = pjsip_endpt_get_capability(pjsua_get_pjsip_endpt(), Int32(PJSIP_H_ALLOW.rawValue), nil)
+            
+            if (cap_hdr != nil) {
+                let clone = pjsip_hdr_clone(tdata!.pointee.pool, cap_hdr)
+                let opaque = OpaquePointer(clone)
+                let header = UnsafeMutablePointer<pjsip_hdr>(opaque)
+                
+                pjsip_msg_add_hdr(tdata!.pointee.msg, header)
+            }
+        }
+        
+        /* Add User-Agent header */
+        do {
+            var user_agent = pj_str_t()
+            var USER_AGENT = pj_str(UnsafeMutablePointer<Int8>(mutating: "User-Agent"))
+            var h: UnsafeMutablePointer<pjsip_hdr>
+            
+            
+            let str = "PJSUA v\(String(cString: pj_get_version()))/\(PJ_OS_NAME)"
+            pj_strdup2_with_null(tdata!.pointee.pool, &user_agent, UnsafeMutablePointer<Int8>(mutating: str))
+            
+            let generic = pjsip_generic_string_hdr_create(tdata!.pointee.pool, &USER_AGENT, &user_agent)!
+            h = UnsafeMutableRawPointer(generic).bindMemory(to: pjsip_hdr.self, capacity: 1)
+            pjsip_msg_add_hdr(tdata!.pointee.msg, h)
+        }
+        
+        pjsip_endpt_send_response2(pjsua_get_pjsip_endpt(), rdata, tdata, nil, nil)
+        
+        return pj_bool_t(PJ_TRUE.rawValue)
+    }
+    
     /* Add account */
-    func cmd_add_account() -> pj_status_t {
+    func addAccount() -> pj_status_t {
         var acc_cfg = pjsua_acc_config()
         var status: pj_status_t
         
@@ -132,6 +207,8 @@ class PjsuaApp {
             print("!!!!!Error adding new account!")
         }
         
+        pjsua_acc_set_online_status(current_acc, pj_bool_t(PJ_TRUE.rawValue))
+        
         return status
     }
     
@@ -162,25 +239,18 @@ class PjsuaApp {
             fatalError()
         }
         
-        _ = cmd_add_account()
+        status = addAccount()
+        if (status != PJ_SUCCESS.rawValue) {
+            var errmsg = Array(repeating: Int8(), count: Int(PJ_ERR_MSG_SIZE))
+            pj_strerror(status, &errmsg, Int(PJ_ERR_MSG_SIZE))
+            let data = Data(bytes: errmsg, count: errmsg.count)
+            print("Pjsua add account Error: \(String(data: data, encoding: .utf8) ?? "")")
+            
+            // TODO: Add pjsua_app_destroy()
+            //pjsua_app_destroy();
+            fatalError()
+        }
     }
-    
-    
-    //static var app_cfg = pjsua_app_cfg_t()
-    
-    //    /**
-    //     * This structure contains the configuration of application.
-    //     */
-    //    struct pjsua_app_cfg_t {
-    //        /**
-    //         * This will enable application to supply customize configuration other than
-    //         * the basic configuration provided by pjsua.
-    //         */
-    //        void (*on_config_init)(pjsua_app_config *cfg);
-    //    }
-    
-    
-    
     
     /* Set default config. */
     func default_config() -> pjsua_app_config {
@@ -221,18 +291,11 @@ class PjsuaApp {
     }
     
     func app_run() -> pj_status_t {
-        //    pj_thread_t *stdout_refresh_thread = NULL;
         var status: pj_status_t
-        
-        //    /* Start console refresh thread */
-        //    if (stdout_refresh > 0) {
-        //        pj_thread_create(app_config.pool, "stdout", &stdout_refresh_proc,
-        //                         NULL, 0, 0, &stdout_refresh_thread);
-        //    }
         
         status = pjsua_start()
         if (status != PJ_SUCCESS.rawValue) {
-            fatalError()
+            return status
         }
         
         // Enum audio codecs
@@ -281,10 +344,6 @@ class PjsuaApp {
             for i in 0..<videoCodecsCount {
                 print("ID: \(String(cString: videoCodecs[Int(i)].codec_id.ptr)), priority: \(Int(videoCodecs[Int(i)].priority))")
             }
-            
-            //            for (_, codec) in videoCodecs.enumerated() {
-            //                print("ID: \(String(cString: codec.codec_id.ptr)), priority: \(Int(codec.priority))")
-            //            }
         }
         
         // Set video codec priority
@@ -293,7 +352,6 @@ class PjsuaApp {
         var videoCodec: pj_str_t = pj_str_t()
         
         pjsua_vid_codec_set_priority(pj_cstr(&videoCodec, "H264/97"), pj_uint8_t(PJMEDIA_CODEC_PRIO_HIGHEST.rawValue))
-        //pjsua_vid_codec_set_priority(pj_cstr(&videoCodec, "VP8/90000"), pj_uint8_t(PJMEDIA_CODEC_PRIO_DISABLED.rawValue))
         
         if (pjsua_vid_enum_codecs(UnsafeMutablePointer(mutating: videoCodecs), &videoCodecsCount) == Int32(PJ_SUCCESS.rawValue)) {
             print("List of video codecs after reset priorities:")
@@ -301,16 +359,30 @@ class PjsuaApp {
             for i in 0..<videoCodecsCount {
                 print("ID: \(String(cString: videoCodecs[Int(i)].codec_id.ptr)), priority: \(Int(videoCodecs[Int(i)].priority))")
             }
-            
-            //            for (_, codec) in videoCodecs.enumerated() {
-            //                print("ID: \(String(cString: codec.codec_id.ptr)), priority: \(Int(codec.priority))")
-            //            }
         }
         
         return status
     }
     
     func app_init() -> pj_status_t {
+        /* The module instance. */
+        var mod_default_handler = pjsip_module(
+            prev: nil,
+            next: nil,
+            name: pj_str(UnsafeMutablePointer<Int8>(mutating: "mod-default-handler")),
+            id: -1,
+            priority: Int32(PJSIP_MOD_PRIORITY_APPLICATION.rawValue + 99),
+            load: nil,
+            start: nil,
+            stop: nil,
+            unload: nil,
+            on_rx_request: default_mod_on_rx_request,
+            on_rx_response: nil,
+            on_tx_request: nil,
+            on_tx_response: nil,
+            on_tsx_state: nil
+        )
+        
         var transport_id: pjsua_transport_id = -1
         var tcp_cfg = pjsua_transport_config()
         var status: pj_status_t
@@ -327,8 +399,10 @@ class PjsuaApp {
         app_config.cfg.cb.on_call_state = on_call_state
         app_config.cfg.cb.on_call_media_state = on_call_media_state
         app_config.cfg.cb.on_incoming_call = on_incoming_call
+        app_config.cfg.cb.on_call_tsx_state = on_call_tsx_state
         app_config.cfg.cb.on_reg_state = on_reg_state
         app_config.cfg.cb.on_transport_state = on_transport_state
+        app_config.cfg.cb.on_snd_dev_operation = on_snd_dev_operation
         app_config.cfg.cb.on_call_media_event = on_call_media_event
         
         /* Set sound device latency */
@@ -340,27 +414,39 @@ class PjsuaApp {
             app_config.media_cfg.snd_play_latency = app_config.playback_lat
         }
         
-        //        if (app_cfg.on_config_init) {
-        //            (*app_cfg.on_config_init)(&app_config)
-        //        }
-        
-//        // Pete
-//        app_config.cfg.outbound_proxy_cnt = 1;
-//        app_config.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: "sips:siptest.butterflymx.com:5061"))
-        
         /* Initialize pjsua */
         status = pjsua_init(&(app_config.cfg), &(app_config.log_cfg), &(app_config.media_cfg))
-        
         if (status != PJ_SUCCESS.rawValue) {
             return status
         }
         
+        // TODO: Enable module handler will cause pjsua_acc_add() error. Why?
+//        /* Initialize our module to handle otherwise unhandled request */
+//        status = pjsip_endpt_register_module(pjsua_get_pjsip_endpt(), &mod_default_handler)
+//        if (status != PJ_SUCCESS.rawValue) {
+//            return status
+//        }
+        
+//        /* Initialize calls data */
+//        for i in 0..<app_config.call_data.count {
+//            app_config.call_data[i].timer.id = PJSUA_INVALID_ID.rawValue
+//            app_config.call_data[i].timer.cb = &call_timeout_callback
+//        }
+        
+        /* Add UDP transport unless it's disabled. */
+        if (app_config.no_udp == PJ_FALSE.rawValue) {
+            let type: pjsip_transport_type_e = PJSIP_TRANSPORT_UDP
+            
+            status = pjsua_transport_create(type, &app_config.udp_cfg, &transport_id)
+            if (status != PJ_SUCCESS.rawValue) { return status }
+        }
+
         
         //#if defined(PJSIP_HAS_TLS_TRANSPORT) && PJSIP_HAS_TLS_TRANSPORT!=0
         /* Add TLS transport when application wants one */
         if (app_config.use_tls != 0) {
             
-            var acc_id = pjsua_acc_id()
+            //var acc_id = pjsua_acc_id()
             
             /* Copy the QoS settings */
             tcp_cfg.tls_setting.qos_type = tcp_cfg.qos_type
@@ -371,16 +457,14 @@ class PjsuaApp {
             status = pjsua_transport_create(PJSIP_TRANSPORT_TLS, &tcp_cfg, &transport_id)
             tcp_cfg.port -= 1
             if (status != PJ_SUCCESS.rawValue) {
-                fatalError()
+                return status
             }
         }
-        
-        
         
         if (transport_id == -1) {
             print("Error: no transport is configured")
             status = -1
-            fatalError()
+            return status
         }
         
 //        /* Optionally disable some codec */
@@ -402,6 +486,7 @@ class PjsuaApp {
         
         /* Use null sound device? */
         if (app_config.null_audio != 0) {
+            print("Set null sound device")
             status = pjsua_set_null_snd_dev()
             if (status != PJ_SUCCESS.rawValue) {
                 return status
@@ -414,7 +499,7 @@ class PjsuaApp {
             status = pjsua_set_snd_dev(app_config.capture_dev,
                                        app_config.playback_dev)
             if (status != PJ_SUCCESS.rawValue) {
-                fatalError()
+                return status
             }
         }
         
@@ -425,6 +510,20 @@ class PjsuaApp {
         
         return pj_status_t(PJ_SUCCESS.rawValue)
     }
+    
+    /*
+     * Notification on sound device operation.
+     */
+    let on_snd_dev_operation: @convention(c) (Int32) -> pj_status_t = { operation in
+        var play_dev: Int32 = 0
+        var cap_dev: Int32 = 0
+    
+        pjsua_get_snd_dev(&cap_dev, &play_dev)
+        print("Turning sound device \(cap_dev) \(play_dev) \((operation == 1 ? "ON" : "OFF"))")
+    
+        return pj_status_t(PJ_SUCCESS.rawValue)
+    }
+
     
     let on_reg_state: @convention(c) (pjsua_acc_id) -> Void = { accountID in
         var status = pj_status_t()
@@ -438,27 +537,10 @@ class PjsuaApp {
             return
         }
 
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: SIPNotification.registrationState.notification, object: nil, userInfo: ["accountID" : accountID, "statusText" : String(cString: info.status_text.ptr), "status" : info.status])
-        }
-    }
-    
-//    func on_reg_state(accountID: pjsua_acc_id) {
-//        var status = pj_status_t()
-//        var info = pjsua_acc_info()
-//
-//        status = pjsua_acc_get_info(accountID, &info)
-//
-//        if status != PJ_SUCCESS.rawValue {
-//            print("Error registration status: \(status)")
-//
-//            return
-//        }
-//
 //        DispatchQueue.main.async {
 //            NotificationCenter.default.post(name: SIPNotification.registrationState.notification, object: nil, userInfo: ["accountID" : accountID, "statusText" : String(cString: info.status_text.ptr), "status" : info.status])
 //        }
-//    }
+    }
     
     /*
      * Find next call when current call is disconnected or when user
@@ -487,8 +569,10 @@ class PjsuaApp {
         return pj_bool_t(PJ_FALSE.rawValue)
     }
     
-    // TODO: complete on_call_state
-    let on_call_state: @convention(c) (pjsua_call_id, UnsafeMutablePointer<pjsip_event>?) -> Void = { call_id, _ in
+    /*
+     * Handler when invite state has changed.
+     */
+    let on_call_state: @convention(c) (pjsua_call_id, UnsafeMutablePointer<pjsip_event>?) -> Void = { call_id, event in
         
         var call_info = pjsua_call_info()
         
@@ -497,20 +581,54 @@ class PjsuaApp {
         if (call_info.state == PJSIP_INV_STATE_DISCONNECTED) {
             
             /* Stop all ringback for this call */
-//            PjsuaApp.shared.ring_stop(call_id)
+            PjsuaApp.shared.ring_stop(call_id)
             
-            print("Call \(call_id) is DISCONNECTED [reason=\(call_info.last_status) \(call_info.last_status_text.ptr)]")
+            /* Cancel duration timer, if any */
+            if (PjsuaApp.shared.app_config.call_data[Int(call_id)].timer.id != PJSUA_INVALID_ID.rawValue) {
+                var cd: app_call_data = PjsuaApp.shared.app_config.call_data[Int(call_id)]
+                let endpt = pjsua_get_pjsip_endpt()
+                
+                cd.timer.id = PJSUA_INVALID_ID.rawValue
+                pjsip_endpt_cancel_timer(endpt, &cd.timer)
+            }
+            
+            print("Call \(call_id) is DISCONNECTED [reason=\(call_info.last_status.rawValue) \(String(cString: call_info.last_status_text.ptr))]")
             
             if (call_id == PjsuaApp.shared.current_call) {
                 _ = PjsuaApp.shared.find_next_call()
             }
             
             /* Dump media state upon disconnected */
-            print("Call \(call_id) disconnected, dumping media stats..")
+            print("Call \(call_id) disconnected")
             
         } else {
             if (call_info.state == PJSIP_INV_STATE_EARLY) {
+                var code: Int
+                var reason: pj_str_t
+                var msg: pjsip_msg
+                let e = event!.pointee
                 
+                /* This can only occur because of TX or RX message */
+                assert(e.type == PJSIP_EVENT_TSX_STATE)
+                
+                if (e.body.tsx_state.type == PJSIP_EVENT_RX_MSG) {
+                    msg = e.body.tsx_state.src.rdata.pointee.msg_info.msg.pointee
+                } else {
+                    msg = e.body.tsx_state.src.tdata.pointee.msg.pointee
+                }
+                
+                code = Int(msg.line.status.code)
+                reason = msg.line.status.reason
+                
+                /* Start ringback for 180 for UAC unless there's SDP in 180 */
+                if (call_info.role == PJSIP_ROLE_UAC && code == 180 && msg.body == nil && call_info.media_status == PJSUA_CALL_MEDIA_NONE)
+                {
+                    PjsuaApp.shared.ringback_start(call_id)
+                }
+                
+                print("Call \(call_id) state changed to \(call_info.state_text.ptr.pointee) (\(code) \(reason))")
+            } else {
+                print("Call \(call_id) state changed to \(call_info.state_text.ptr.pointee)")
             }
             
             if PjsuaApp.shared.current_call == PJSUA_INVALID_ID.rawValue {
@@ -739,6 +857,20 @@ class PjsuaApp {
         //#endif
     }
     
+    func ringback_start(_ call_id: pjsua_call_id ) {
+        if (app_config.no_tones == PJ_TRUE.rawValue) { return }
+        
+        if (app_config.call_data[Int(call_id)].ringback_on == PJ_TRUE.rawValue) { return }
+        
+        app_config.call_data[Int(call_id)].ringback_on = pj_bool_t(PJ_TRUE.rawValue)
+        
+        app_config.ringback_cnt += 1
+        
+        if (app_config.ringback_cnt == 1 && app_config.ringback_slot != PJSUA_INVALID_ID.rawValue) {
+            pjsua_conf_connect(app_config.ringback_slot, 0)
+        }
+    }
+
     func ring_start(_ call_id: pjsua_call_id) {
         if (app_config.no_tones) == pj_bool_t(PJ_TRUE.rawValue) { return }
         
@@ -746,7 +878,9 @@ class PjsuaApp {
         
         app_config.call_data[Int(call_id)].ring_on = pj_bool_t(PJ_TRUE.rawValue)
         
-        if (app_config.ring_cnt + 1 == 1), app_config.ring_slot != PJSUA_INVALID_ID.rawValue {
+        app_config.ring_cnt += 1
+        
+        if (app_config.ring_cnt == 1), app_config.ring_slot != PJSUA_INVALID_ID.rawValue {
             pjsua_conf_connect(app_config.ring_slot, 0)
         }
     }
@@ -758,7 +892,10 @@ class PjsuaApp {
             app_config.call_data[Int(call_id)].ringback_on = pj_bool_t(PJ_FALSE.rawValue)
             
             assert(app_config.ringback_cnt > 0)
-            if app_config.ringback_cnt - 1 == 0, app_config.ringback_slot != PJSUA_INVALID_ID.rawValue {
+            
+            app_config.ringback_cnt -= 1
+            
+            if app_config.ringback_cnt == 0, app_config.ringback_slot != PJSUA_INVALID_ID.rawValue {
                 pjsua_conf_disconnect(app_config.ringback_slot, 0)
                 pjmedia_tonegen_rewind(app_config.ringback_port)
             }
@@ -774,12 +911,80 @@ class PjsuaApp {
             }
         }
     }
+  
+    /*
+     * Handler when a transaction within a call has changed state.
+     */
+    let on_call_tsx_state: @convention(c) (pjsua_call_id, UnsafeMutablePointer<pjsip_transaction>?, UnsafeMutablePointer<pjsip_event>?) -> Void = { call_id, tsx, e in
+        let name = pj_str(UnsafeMutablePointer<Int8>(mutating: "INFO"))
+        var info_method = pjsip_method(id: PJSIP_OTHER_METHOD, name: name)
+        
+        if (pjsip_method_cmp(&(tsx!.pointee.method), &info_method) == 0) {
+            /*
+             * Handle INFO method.
+             */
+            var STR_APPLICATION = pj_str(UnsafeMutablePointer<Int8>(mutating: "application"))
+            var STR_DTMF_RELAY = pj_str(UnsafeMutablePointer<Int8>(mutating: "dtmf-relay"))
+            var body: pjsip_msg_body? = nil
+            var dtmf_info: pj_bool_t = pj_bool_t(PJ_FALSE.rawValue)
+            
+            if (tsx!.pointee.role == PJSIP_ROLE_UAC) {
+                if (e!.pointee.body.tsx_state.type == PJSIP_EVENT_TX_MSG) {
+                    body = e!.pointee.body.tsx_state.src.tdata.pointee.msg.pointee.body.pointee
+                } else {
+                    body = e!.pointee.body.tsx_state.tsx!.pointee.last_tx.pointee.msg.pointee.body.pointee
+                }
+            } else {
+                if (e!.pointee.body.tsx_state.type == PJSIP_EVENT_RX_MSG) {
+                    body = e!.pointee.body.tsx_state.src.rdata.pointee.msg_info.msg.pointee.body.pointee
+                }
+            }
+            
+            /* Check DTMF content in the INFO message */
+            if (body != nil && body!.len != 0 &&
+                pj_stricmp(&body!.content_type.type, &STR_APPLICATION)==0 &&
+                pj_stricmp(&body!.content_type.subtype, &STR_DTMF_RELAY)==0) {
+                dtmf_info = pj_bool_t(PJ_TRUE.rawValue)
+            }
+            
+            let prev_state = e!.pointee.body.tsx_state.prev_state
+            if (dtmf_info == pj_bool_t(PJ_TRUE.rawValue) && tsx!.pointee.role == PJSIP_ROLE_UAC &&
+                (tsx!.pointee.state == PJSIP_TSX_STATE_COMPLETED ||
+                    (tsx!.pointee.state == PJSIP_TSX_STATE_TERMINATED && prev_state != PJSIP_TSX_STATE_COMPLETED.rawValue))) {
+                /* Status of outgoing INFO request */
+                if (tsx!.pointee.status_code >= 200 && tsx!.pointee.status_code < 300) {
+                    print("Call \(call_id): DTMF sent successfully with INFO")
+                } else if (tsx!.pointee.status_code >= 300) {
+                    print("Call \(call_id): Failed to send DTMF with INFO: \(tsx!.pointee.status_code)/\(tsx!.pointee.status_text.ptr)")
+                }
+            } else if (dtmf_info == pj_bool_t(PJ_TRUE.rawValue) && tsx!.pointee.role == PJSIP_ROLE_UAS &&
+                tsx!.pointee.state == PJSIP_TSX_STATE_TRYING) {
+                /* Answer incoming INFO with 200/OK */
+                var rdata: UnsafeMutablePointer<pjsip_rx_data>
+                var tdata: UnsafeMutablePointer<pjsip_tx_data>?
+                var status: pj_status_t
+                
+                rdata = e!.pointee.body.tsx_state.src.rdata
+                
+                if ((rdata.pointee.msg_info.msg.pointee.body) != nil) {
+                    status = pjsip_endpt_create_response(tsx!.pointee.endpt, rdata, 200, nil, &tdata)
+                    if (status == PJ_SUCCESS.rawValue) {
+                        status = pjsip_tsx_send_msg(tsx, tdata)
+                    }
+                    
+                    print("Call \(call_id): incoming INFO: \(rdata.pointee.msg_info.msg.pointee.body.pointee.data)")
+                } else {
+                    status = pjsip_endpt_create_response(tsx!.pointee.endpt, rdata, 400, nil, &tdata)
+                    if (status == PJ_SUCCESS.rawValue) {
+                        status = pjsip_tsx_send_msg(tsx, tdata)
+                    }
+                }
+            }
+        }
+    }
     
     let on_incoming_call: @convention(c) (pjsua_acc_id, pjsua_call_id, UnsafeMutablePointer<pjsip_rx_data>?) -> Void = { acc_id, call_id, rdata in
         var call_info = pjsua_call_info()
-        
-        //    PJ_UNUSED_ARG(acc_id);
-        //    PJ_UNUSED_ARG(rdata);
         
         pjsua_call_get_info(call_id, &call_info)
         
@@ -788,7 +993,7 @@ class PjsuaApp {
         }
         
         /* Start ringback */
-        //ring_start(call_id)
+        PjsuaApp.shared.ring_start(call_id)
         
         if (PjsuaApp.shared.app_config.auto_answer > 0) {
             var opt = pjsua_call_setting()
@@ -819,7 +1024,7 @@ class PjsuaApp {
     let on_call_media_event: @convention(c) (pjsua_call_id, CUnsignedInt, UnsafeMutablePointer<pjmedia_event>?) -> Void = { call_id, med_idx, event in
         var event_name = Array(repeating: CChar(), count: 5)
         
-        print("Event \(pjmedia_fourcc_name(event!.pointee.type.rawValue, &event_name))")
+        print("Event \(String(cString: pjmedia_fourcc_name(event!.pointee.type.rawValue, &event_name)))")
         
         //    #if PJSUA_HAS_VIDEO
         if (event!.pointee.type == PJMEDIA_EVENT_FMT_CHANGED) {
@@ -869,9 +1074,9 @@ class PjsuaApp {
         
         switch (state) {
         case PJSIP_TP_STATE_CONNECTED:
-            print("SIP \(tp.type_name) transport is connected to \(host_port)")
+            print("SIP \(String(cString: tp.type_name)) transport is connected to \(host_port)")
         case PJSIP_TP_STATE_DISCONNECTED:
-            print("SIP \(tp.type_name) transport is disconnected from \(host_port)")
+            print("SIP \(String(cString: tp.type_name)) transport is disconnected from \(host_port)")
         default:
             break
         }
@@ -885,41 +1090,40 @@ class PjsuaApp {
             let tls_info = info.ext_info.load(as: pjsip_tls_state_info.self)
             let ssl_sock_info = tls_info.ssl_sock_info.pointee
             var buf: [CChar] = Array(repeating: CChar(), count: 2048)
-            //            const char *verif_msgs[32];
-            //            unsigned verif_msg_cnt;
+            var verif_msgs = UnsafeMutablePointer<UnsafePointer<Int8>?>.allocate(capacity: 32)
+            var verif_msg_cnt: UInt32 = 32
             
             /* Dump server TLS cipher */
-            print("TLS cipher used: 0x\(ssl_sock_info.cipher)/\(pj_ssl_cipher_name(ssl_sock_info.cipher))")
+            let cipher = ssl_sock_info.cipher.rawValue
+            print("TLS cipher used: 0x\(String(format: "%x", cipher))/\(String(cString: pj_ssl_cipher_name(ssl_sock_info.cipher)))")
             
             /* Dump server TLS certificate */
             pj_ssl_cert_info_dump(ssl_sock_info.remote_cert_info, "  ", &buf, 2048)
-            print("TLS cert info of \(host_port): \(buf)")
+            print("TLS cert info of \(host_port):")
+            print(String(cString: buf))
             
-            //            /* Dump server TLS certificate verification result */
-            //            verif_msg_cnt = PJ_ARRAY_SIZE(verif_msgs);
-            //            pj_ssl_cert_get_verify_status_strings(ssl_sock_info->verify_status,
-            //                                                  verif_msgs, &verif_msg_cnt);
-            //            PJ_LOG(3,(THIS_FILE, "TLS cert verification result of %s : %s",
-            //                      host_port,
-            //                      (verif_msg_cnt == 1? verif_msgs[0]:"")));
-            //            if (verif_msg_cnt > 1) {
-            //                unsigned i;
-            //                for (i = 0; i < verif_msg_cnt; ++i)
-            //                PJ_LOG(3,(THIS_FILE, "- %s", verif_msgs[i]));
-            //            }
-            //
-            //            if (ssl_sock_info->verify_status &&
-            //                !app_config.udp_cfg.tls_setting.verify_server)
-            //            {
-            //                PJ_LOG(3,(THIS_FILE, "PJSUA is configured to ignore TLS cert "
-            //                    "verification errors"));
-            //            }
+            /* Dump server TLS certificate verification result */
+            //verif_msg_cnt = UInt32(verif_msgs.count)
+            pj_ssl_cert_get_verify_status_strings(ssl_sock_info.verify_status, verif_msgs, &verif_msg_cnt)
+            
+            print("TLS cert verification result of \(host_port): \(verif_msg_cnt == 1 ? String(cString: verif_msgs[0]!) : "")")
+            
+            if (verif_msg_cnt > 1) {
+                for i in 0..<Int(verif_msg_cnt) {
+                    print("- \(verif_msgs[i]!)")
+                }
+            }
+
+            if (ssl_sock_info.verify_status != 0 && PjsuaApp.shared.app_config.udp_cfg.tls_setting.verify_server == 0) {
+                print("PJSUA is configured to ignore TLS cert verification errors")
+            }
+            
+            verif_msgs.deallocate(capacity: 32)
         }
-        
         //    #endif
-        
     }
     
+    /*
     func onIncomingCall(accountID: pjsua_acc_id, callID: pjsua_call_id, rData: UnsafeMutablePointer<pjsip_rx_data>?) {
         print("== On incoming call")
         
@@ -965,5 +1169,5 @@ class PjsuaApp {
             NotificationCenter.default.post(name: SIPNotification.callState.notification, object: nil, userInfo: ["callID" : callID, "state" : callInfo.state])
         }
     }
-    
+    */
 }
