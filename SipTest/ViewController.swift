@@ -60,6 +60,14 @@ class ViewController: UIViewController {
         accountConfig.cred_info.0.username = pj_str(UnsafeMutablePointer<Int8>(mutating: username))
         accountConfig.cred_info.0.data_type = Int32(PJSIP_CRED_DATA_PLAIN_PASSWD.rawValue)
         accountConfig.cred_info.0.data = pj_str(UnsafeMutablePointer<Int8>(mutating: password))
+  
+        // Show incoming video
+        accountConfig.vid_in_auto_show = pj_bool_t(PJ_TRUE.rawValue)
+        accountConfig.vid_out_auto_transmit = pj_bool_t(PJ_TRUE.rawValue)
+        accountConfig.vid_wnd_flags = PJMEDIA_VID_DEV_WND_BORDER.rawValue | PJMEDIA_VID_DEV_WND_RESIZABLE.rawValue
+        accountConfig.vid_cap_dev = PJMEDIA_VID_DEFAULT_CAPTURE_DEV.rawValue
+        accountConfig.vid_rend_dev = PJMEDIA_VID_DEFAULT_RENDER_DEV.rawValue
+
         
         let status: pj_status_t = pjsua_acc_add(&accountConfig, pj_bool_t(PJ_TRUE.rawValue), &accountID)
         
@@ -68,7 +76,7 @@ class ViewController: UIViewController {
         }
         
         // Show incoming video
-        accountConfig.vid_in_auto_show = pj_bool_t(PJ_TRUE.rawValue)
+//        accountConfig.vid_in_auto_show = pj_bool_t(PJ_TRUE.rawValue)
 //        accountConfig.vid_out_auto_transmit = pj_bool_t(PJ_TRUE.rawValue)
         
 //        accountConfig.vid_wnd_flags = PJMEDIA_VID_DEV_WND_BORDER.rawValue | PJMEDIA_VID_DEV_WND_RESIZABLE.rawValue
