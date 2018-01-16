@@ -15,6 +15,7 @@ class OutgoingCallViewController: UIViewController {
     @IBOutlet weak var callButton: UIButton!
     
     var callID = pjsua_call_id()
+    var videoOn = true
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -64,9 +65,22 @@ class OutgoingCallViewController: UIViewController {
     }
     
     @IBAction func tapToStartVideo(_ sender: UIButton) {
+//        var callInfo = pjsua_call_info()
+//        pjsua_call_get_info(callID, &callInfo)
+        callID = 1
+
         var status = pj_status_t(PJ_SUCCESS.rawValue)
+        var param = pjsua_call_vid_strm_op_param()
         
-        status = pjsua_call_set_vid_strm(callID, PJSUA_CALL_VID_STRM_ADD, nil)
+        videoOn = videoOn ? false : true
+        let videoOp = videoOn ? PJSUA_CALL_VID_STRM_START_TRANSMIT : PJSUA_CALL_VID_STRM_STOP_TRANSMIT
+        
+//        videoOp = PJSUA_CALL_VID_STRM_CHANGE_DIR
+        
+        pjsua_call_vid_strm_op_param_default(&param)
+        param.med_idx = -1 // First active video stream
+        
+        status = pjsua_call_set_vid_strm(callID, videoOp, &param)
         
         if status != pj_status_t(PJ_SUCCESS.rawValue) {
             fatalError()

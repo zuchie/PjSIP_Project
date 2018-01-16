@@ -80,12 +80,25 @@
                                     <action selector="tapLoginButton:" destination="BYZ-38-t0r" eventType="touchUpInside" id="5aW-oc-jY6"/>
                                 </connections>
                             </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="D8F-sJ-ebQ">
+                                <rect key="frame" x="16" y="637" width="46" height="30"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="30" id="Svc-wp-cH9"/>
+                                    <constraint firstAttribute="width" constant="46" id="jFG-u4-9Mi"/>
+                                </constraints>
+                                <state key="normal" title="Video"/>
+                                <connections>
+                                    <action selector="tapVideoButton:" destination="BYZ-38-t0r" eventType="touchUpInside" id="x9p-dl-9NP"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstAttribute="trailingMargin" secondItem="FbN-5n-BR2" secondAttribute="trailing" id="0Qv-rq-kgt"/>
                             <constraint firstItem="FbN-5n-BR2" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leadingMargin" id="Gq8-dd-bRY"/>
+                            <constraint firstItem="D8F-sJ-ebQ" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leadingMargin" id="Z40-5s-r3t"/>
                             <constraint firstItem="FbN-5n-BR2" firstAttribute="centerY" secondItem="8bC-Xf-vdC" secondAttribute="centerY" multiplier="0.7" id="kv4-k2-QDZ"/>
+                            <constraint firstAttribute="bottomMargin" secondItem="D8F-sJ-ebQ" secondAttribute="bottom" id="rPx-VV-HW4"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="i72-Sl-Ysa"/>
                     </view>
@@ -136,7 +149,7 @@
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="BZL-mD-AGg">
-                                <rect key="frame" x="279" y="205" width="76" height="30"/>
+                                <rect key="frame" x="0.0" y="617" width="76" height="30"/>
                                 <state key="normal" title="Video"/>
                                 <connections>
                                     <action selector="tapToStartVideo:" destination="ks5-2e-saK" eventType="touchUpInside" id="Xbp-Ey-Day"/>
@@ -145,14 +158,14 @@
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
-                            <constraint firstItem="BZL-mD-AGg" firstAttribute="centerY" secondItem="Dzh-TM-Gll" secondAttribute="centerY" id="B8E-iH-hfY"/>
                             <constraint firstItem="eo0-bE-1Oa" firstAttribute="centerY" secondItem="hyH-Bv-qOz" secondAttribute="centerY" multiplier="0.4" id="C3t-p0-TA0"/>
+                            <constraint firstItem="BZL-mD-AGg" firstAttribute="leading" secondItem="M63-bX-4Kj" secondAttribute="leading" id="CS5-CZ-pfS"/>
                             <constraint firstItem="Dzh-TM-Gll" firstAttribute="centerX" secondItem="M63-bX-4Kj" secondAttribute="centerX" id="Hbn-Ks-pzX"/>
                             <constraint firstItem="Dzh-TM-Gll" firstAttribute="top" secondItem="eo0-bE-1Oa" secondAttribute="bottom" constant="56.5" id="Nvn-NN-u6B"/>
                             <constraint firstAttribute="trailingMargin" secondItem="eo0-bE-1Oa" secondAttribute="trailing" id="Pnd-va-1CB"/>
+                            <constraint firstItem="M63-bX-4Kj" firstAttribute="bottom" secondItem="BZL-mD-AGg" secondAttribute="bottom" constant="20" id="UmS-iR-dUP"/>
                             <constraint firstItem="BZL-mD-AGg" firstAttribute="height" secondItem="Dzh-TM-Gll" secondAttribute="height" id="ZaD-JP-Dvn"/>
                             <constraint firstItem="eo0-bE-1Oa" firstAttribute="leading" secondItem="hyH-Bv-qOz" secondAttribute="leadingMargin" id="ZsL-Po-Hra"/>
-                            <constraint firstItem="BZL-mD-AGg" firstAttribute="leading" secondItem="Dzh-TM-Gll" secondAttribute="trailing" constant="53" id="gk9-V9-z5G"/>
                             <constraint firstItem="BZL-mD-AGg" firstAttribute="width" secondItem="Dzh-TM-Gll" secondAttribute="width" id="rXP-S9-Smk"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="M63-bX-4Kj"/>

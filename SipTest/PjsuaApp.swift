@@ -147,11 +147,11 @@ class PjsuaApp {
         /* Add User-Agent header */
         do {
             var user_agent = pj_str_t()
-            var USER_AGENT = pj_str(UnsafeMutablePointer<Int8>(mutating: "User-Agent"))
+            var USER_AGENT = pj_str(UnsafeMutablePointer<Int8>(mutating: ("User-Agent" as NSString).utf8String))
             var h: UnsafeMutablePointer<pjsip_hdr>
             
             
-            let str = "PJSUA v\(String(cString: pj_get_version()))/\(PJ_OS_NAME)"
+            let str = ("PJSUA v\(String(cString: pj_get_version()))/\(PJ_OS_NAME)" as NSString).utf8String
             pj_strdup2_with_null(tdata!.pointee.pool, &user_agent, UnsafeMutablePointer<Int8>(mutating: str))
             
             let generic = pjsip_generic_string_hdr_create(tdata!.pointee.pool, &USER_AGENT, &user_agent)!
@@ -258,7 +258,7 @@ class PjsuaApp {
         
         pjsua_config_default(&cfg.cfg)
 
-        let str = "PJSUA v\(String(cString: pj_get_version())) \(String(cString: pj_get_sys_info().pointee.info.ptr))"
+        let str = ("PJSUA v\(String(cString: pj_get_version())) \(String(cString: pj_get_sys_info().pointee.info.ptr))" as NSString).utf8String
         cfg.cfg.user_agent = pj_str(UnsafeMutablePointer<Int8>(mutating: str))
         
         pjsua_logging_config_default(&cfg.log_cfg)
@@ -273,7 +273,7 @@ class PjsuaApp {
         
         // Pete, added for test
         cfg.cfg.outbound_proxy_cnt = 1
-        cfg.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: "sips:siptest.butterflymx.com"))
+        cfg.cfg.outbound_proxy.0 = pj_str(UnsafeMutablePointer<Int8>(mutating: ("sips:siptest.butterflymx.com" as NSString).utf8String))
         
         return cfg
     }
@@ -369,7 +369,7 @@ class PjsuaApp {
         var mod_default_handler = pjsip_module(
             prev: nil,
             next: nil,
-            name: pj_str(UnsafeMutablePointer<Int8>(mutating: "mod-default-handler")),
+            name: pj_str(UnsafeMutablePointer<Int8>(mutating: ("mod-default-handler" as NSString).utf8String)),
             id: -1,
             priority: Int32(PJSIP_MOD_PRIORITY_APPLICATION.rawValue + 99),
             load: nil,
@@ -729,13 +729,16 @@ class PjsuaApp {
                     
                     if wi.is_native == PJ_FALSE.rawValue {
                         /* Resize it to fit width */
-                        videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.size.width, height: topVC.view.bounds.size.height * 1.0 * topVC.view.bounds.size.width / videoView.bounds.size.width)
+//                        videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.size.width, height: topVC.view.bounds.size.height * 1.0 * topVC.view.bounds.size.width / videoView.bounds.size.width)
+                        videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.size.width, height: topVC.view.bounds.size.height / 2.0)
                         /* Center it horizontally */
                         videoView.center = CGPoint(x: topVC.view.bounds.size.width / 2.0, y: videoView.bounds.size.height / 2.0)
                         //                    // Show window
                         //                    print("i: \(i)")
                         //                    pjsua_vid_win_set_show(i, pj_bool_t(PJ_TRUE.rawValue))
                     } else {
+                        videoView.bounds.size.width = topVC.view.bounds.size.width / 4.0
+                        videoView.bounds.size.height = topVC.view.bounds.size.height / 4.0
                         /* Preview window, move it to the bottom */
                         videoView.center = CGPoint(x: topVC.view.bounds.size.width / 2.0, y: topVC.view.bounds.size.height - videoView.bounds.size.height / 2.0)
                     }
@@ -806,6 +809,7 @@ class PjsuaApp {
         
         pjsua_call_get_info(call_id, &call_info)
         
+        print("==Media count: \(call_info.media_cnt)")
         for mi in 0..<Int(call_info.media_cnt) {
             var mediaTuple = call_info.media
             let media = withUnsafeBytes(of: &mediaTuple) { (rawPtr) -> [pjsua_call_media_info] in
@@ -817,10 +821,10 @@ class PjsuaApp {
             
             switch media[Int(mi)].type {
             case PJMEDIA_TYPE_AUDIO:
-//                if (call_info.media_status == PJSUA_CALL_MEDIA_ACTIVE) {
-                    PjsuaApp.shared.on_call_audio_state(call_info, mi, has_error)
-//                }
+                print("==Audio media")
+                PjsuaApp.shared.on_call_audio_state(call_info, mi, has_error)
             case PJMEDIA_TYPE_VIDEO:
+                print("==Video media")
                 PjsuaApp.shared.on_call_video_state(call_info, mi, has_error)
             default:
                 break
@@ -828,7 +832,7 @@ class PjsuaApp {
         }
         
         if has_error == pj_bool_t(PJ_TRUE.rawValue) {
-            var reason = pj_str(UnsafeMutablePointer<Int8>(mutating: "Media failed"))
+            var reason = pj_str(UnsafeMutablePointer<Int8>(mutating: ("Media failed" as NSString).utf8String))
             pjsua_call_hangup(call_id, 500, &reason, nil)
         }
         
@@ -916,15 +920,15 @@ class PjsuaApp {
      * Handler when a transaction within a call has changed state.
      */
     let on_call_tsx_state: @convention(c) (pjsua_call_id, UnsafeMutablePointer<pjsip_transaction>?, UnsafeMutablePointer<pjsip_event>?) -> Void = { call_id, tsx, e in
-        let name = pj_str(UnsafeMutablePointer<Int8>(mutating: "INFO"))
+        let name = pj_str(UnsafeMutablePointer<Int8>(mutating: ("INFO" as NSString).utf8String))
         var info_method = pjsip_method(id: PJSIP_OTHER_METHOD, name: name)
         
         if (pjsip_method_cmp(&(tsx!.pointee.method), &info_method) == 0) {
             /*
              * Handle INFO method.
              */
-            var STR_APPLICATION = pj_str(UnsafeMutablePointer<Int8>(mutating: "application"))
-            var STR_DTMF_RELAY = pj_str(UnsafeMutablePointer<Int8>(mutating: "dtmf-relay"))
+            var STR_APPLICATION = pj_str(UnsafeMutablePointer<Int8>(mutating: ("application" as NSString).utf8String))
+            var STR_DTMF_RELAY = pj_str(UnsafeMutablePointer<Int8>(mutating: ("dtmf-relay" as NSString).utf8String))
             var body: pjsip_msg_body? = nil
             var dtmf_info: pj_bool_t = pj_bool_t(PJ_FALSE.rawValue)
             

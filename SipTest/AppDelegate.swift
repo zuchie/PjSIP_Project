@@ -272,15 +272,22 @@ func displayWindow(_ wid: pjsua_vid_win_id) {
                 
                 if wi.is_native == PJ_FALSE.rawValue {
                     /* Resize it to fit width */
-                    videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.size.width, height: topVC.view.bounds.size.height * 1.0 * topVC.view.bounds.size.width / videoView.bounds.size.width)
+//                    videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.size.width, height: topVC.view.bounds.size.height * 1.0 * topVC.view.bounds.size.width / videoView.bounds.size.width)
+                    videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.size.width, height: topVC.view.bounds.size.height / 2.0)
+
                     /* Center it horizontally */
                     videoView.center = CGPoint(x: topVC.view.bounds.size.width / 2.0, y: videoView.bounds.size.height / 2.0)
                     //                    // Show window
                     //                    print("i: \(i)")
                     //                    pjsua_vid_win_set_show(i, pj_bool_t(PJ_TRUE.rawValue))
                 } else {
+                    videoView.bounds = CGRect(x: 0, y: 0, width: topVC.view.bounds.width / 8.0, height: topVC.view.bounds.height / 4)
+
+//                    videoView.bounds.size.width = topVC.view.bounds.size.width / 2.0
+//                    videoView.bounds.size.height = topVC.view.bounds.size.height / 2.0
+
                     /* Preview window, move it to the bottom */
-                    videoView.center = CGPoint(x: topVC.view.bounds.size.width / 2.0, y: topVC.view.bounds.size.height - videoView.bounds.size.height / 2.0)
+                    videoView.center = CGPoint(x: topVC.view.bounds.width / 2.0, y: topVC.view.bounds.height - videoView.bounds.height / 2.0)
                 }
             }
         }
@@ -428,7 +435,7 @@ func onCallMediaState(callID: pjsua_call_id) {
     }
     
     if has_error == pj_bool_t(PJ_TRUE.rawValue) {
-        var reason: pj_str_t = pj_str(UnsafeMutablePointer<Int8>(mutating: "Media failed"))
+        var reason: pj_str_t = pj_str(UnsafeMutablePointer<Int8>(mutating: ("Media failed" as NSString).utf8String))
         pjsua_call_hangup(callID, 500, &reason, nil)
         fatalError()
     }

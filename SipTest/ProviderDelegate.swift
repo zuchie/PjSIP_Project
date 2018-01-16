@@ -70,7 +70,7 @@ final class ProviderDelegate: NSObject, CXProviderDelegate {
 
         pjsua_call_setting_default(&opt)
         //opt.aud_cnt = app_config.aud_cnt
-        opt.vid_cnt = 2
+        opt.vid_cnt = 1
 
         let status = pjsua_call_answer2(callID, &opt, 200, nil, nil)
 //        let status = pjsua_call_answer(callID, 200, nil, nil)

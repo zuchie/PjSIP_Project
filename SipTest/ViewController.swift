@@ -14,6 +14,8 @@ class ViewController: UIViewController {
     @IBOutlet weak var usernameTextField: UITextField!
     @IBOutlet weak var passwordTextField: UITextField!
     
+    var videoOn = true
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -27,6 +29,41 @@ class ViewController: UIViewController {
 //    @objc func tapToDismissKeyboard() {
 //        view.endEditing(true)
 //    }
+    
+    func switchOutgoingVideo(_ on: Bool) -> pj_status_t {
+        var status = pj_status_t(PJ_SUCCESS.rawValue)
+        var param = pjsua_call_vid_strm_op_param()
+        var si = pjsua_stream_info()
+        let callID: pjsua_call_id = 1 // TODO: Get call ID
+        
+        pjsua_call_vid_strm_op_param_default(&param)
+
+        param.med_idx = 1 // TODO: Get video stream index
+        if (pjsua_call_get_stream_info(callID, UInt32(param.med_idx), &si) != PJ_SUCCESS.rawValue || si.type != PJMEDIA_TYPE_VIDEO) {
+            print("Invalid stream")
+            return status
+        }
+
+        let defaultDir = si.info.vid.dir
+        let dir = on ? (defaultDir.rawValue | PJMEDIA_DIR_ENCODING.rawValue) : (defaultDir.rawValue & PJMEDIA_DIR_DECODING.rawValue)
+        
+        param.dir = pjmedia_dir(rawValue: dir)
+        
+        status = pjsua_call_set_vid_strm(callID, PJSUA_CALL_VID_STRM_CHANGE_DIR, &param)
+        
+        return status
+    }
+    
+    @IBAction func tapVideoButton(_ sender: UIButton) {
+        var status = pj_status_t(PJ_SUCCESS.rawValue)
+        
+        videoOn = videoOn ? false : true
+        
+        status = switchOutgoingVideo(videoOn)
+        if status != pj_status_t(PJ_SUCCESS.rawValue) {
+            fatalError()
+        }
+    }
     
     @IBAction func tapLoginButton(_ sender: UIButton) {
         var accountID = pjsua_acc_id()
