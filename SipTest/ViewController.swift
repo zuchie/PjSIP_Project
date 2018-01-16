@@ -15,6 +15,7 @@ class ViewController: UIViewController {
     @IBOutlet weak var passwordTextField: UITextField!
     
     var videoOn = true
+    var currentOrientation: pjmedia_orient = PJMEDIA_ORIENT_ROTATE_90DEG
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -23,12 +24,31 @@ class ViewController: UIViewController {
         
         serverURITextField.text = "siptest.butterflymx.com"
         
-        NotificationCenter.default.addObserver(self, selector: #selector(handleRegistrationStatus), name: SIPNotification.registrationState.notification, object: nil)        
+        NotificationCenter.default.addObserver(self, selector: #selector(handleRegistrationStatus), name: SIPNotification.registrationState.notification, object: nil)
+        
+        // Set video devices orientation
+        for i in 0..<pjsua_vid_dev_count() {
+            pjsua_vid_dev_set_setting(pjmedia_vid_dev_index(i), PJMEDIA_VID_DEV_CAP_ORIENTATION, &currentOrientation, pj_bool_t(PJ_TRUE.rawValue))
+        }
     }
     
 //    @objc func tapToDismissKeyboard() {
 //        view.endEditing(true)
 //    }
+    
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        if UIDevice.current.orientation.isLandscape {
+            print("==Landscape")
+            currentOrientation = PJMEDIA_ORIENT_ROTATE_180DEG
+        } else {
+            print("==Portrait")
+            currentOrientation = PJMEDIA_ORIENT_ROTATE_90DEG
+        }
+        
+        for i in 0..<pjsua_vid_dev_count() {
+            pjsua_vid_dev_set_setting(pjmedia_vid_dev_index(i), PJMEDIA_VID_DEV_CAP_ORIENTATION, &currentOrientation, pj_bool_t(PJ_TRUE.rawValue))
+        }
+    }
     
     func switchOutgoingVideo(_ on: Bool) -> pj_status_t {
         var status = pj_status_t(PJ_SUCCESS.rawValue)
