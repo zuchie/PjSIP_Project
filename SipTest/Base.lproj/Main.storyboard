@@ -81,12 +81,15 @@
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="D8F-sJ-ebQ">
-                                <rect key="frame" x="16" y="637" width="46" height="30"/>
+                                <rect key="frame" x="16" y="607" width="70" height="60"/>
+                                <color key="backgroundColor" red="0.16862745100000001" green="0.60392156860000001" blue="0.87058823529999996" alpha="1" colorSpace="calibratedRGB"/>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="30" id="Svc-wp-cH9"/>
-                                    <constraint firstAttribute="width" constant="46" id="jFG-u4-9Mi"/>
+                                    <constraint firstAttribute="height" constant="60" id="Svc-wp-cH9"/>
+                                    <constraint firstAttribute="width" constant="70" id="jFG-u4-9Mi"/>
                                 </constraints>
-                                <state key="normal" title="Video"/>
+                                <state key="normal" title="Video">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
                                 <connections>
                                     <action selector="tapVideoButton:" destination="BYZ-38-t0r" eventType="touchUpInside" id="x9p-dl-9NP"/>
                                 </connections>

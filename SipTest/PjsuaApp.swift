@@ -27,6 +27,7 @@ class PjsuaApp {
     var call_opt = pjsua_call_setting()
 
     var current_call: pjsua_call_id = PJSUA_INVALID_ID.rawValue
+    var media_index: UInt32 = 0
     var app_config = pjsua_app_config()
     
     /* Call specific data */
@@ -694,6 +695,8 @@ class PjsuaApp {
             
             return Array(UnsafeBufferPointer(start: mediaPointer, count: Int(PJMEDIA_MAX_SDP_MEDIA)))
         }
+        
+        media_index = media[mi].index
         
         arrange_window(media[mi].stream.vid.win_in)
     }

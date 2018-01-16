@@ -54,11 +54,13 @@ class ViewController: UIViewController {
         var status = pj_status_t(PJ_SUCCESS.rawValue)
         var param = pjsua_call_vid_strm_op_param()
         var si = pjsua_stream_info()
-        let callID: pjsua_call_id = 1 // TODO: Get call ID
+        let callID: pjsua_call_id = PjsuaApp.shared.current_call
+        
+        print("==call id: \(callID)")
         
         pjsua_call_vid_strm_op_param_default(&param)
 
-        param.med_idx = 1 // TODO: Get video stream index
+        param.med_idx = Int32(PjsuaApp.shared.media_index)
         if (pjsua_call_get_stream_info(callID, UInt32(param.med_idx), &si) != PJ_SUCCESS.rawValue || si.type != PJMEDIA_TYPE_VIDEO) {
             print("Invalid stream")
             return status
@@ -74,12 +76,29 @@ class ViewController: UIViewController {
         return status
     }
     
+    func pauseOutgoingVideo(_ on: Bool) -> pj_status_t {
+        var status = pj_status_t(PJ_SUCCESS.rawValue)
+        var param = pjsua_call_vid_strm_op_param()
+        let callID: pjsua_call_id = PjsuaApp.shared.current_call
+
+        let op: pjsua_call_vid_strm_op = on ? PJSUA_CALL_VID_STRM_START_TRANSMIT : PJSUA_CALL_VID_STRM_STOP_TRANSMIT
+
+        pjsua_call_vid_strm_op_param_default(&param)
+
+        param.med_idx = Int32(PjsuaApp.shared.media_index)
+
+        status = pjsua_call_set_vid_strm(callID, op, &param)
+        
+        return status
+    }
+    
     @IBAction func tapVideoButton(_ sender: UIButton) {
         var status = pj_status_t(PJ_SUCCESS.rawValue)
         
         videoOn = videoOn ? false : true
         
-        status = switchOutgoingVideo(videoOn)
+        //status = switchOutgoingVideo(videoOn)
+        status = pauseOutgoingVideo(videoOn)
         if status != pj_status_t(PJ_SUCCESS.rawValue) {
             fatalError()
         }
